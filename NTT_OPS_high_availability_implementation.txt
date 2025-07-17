@@ -64,8 +64,14 @@ Initial setup:
 			- server_id=10
 			- bind_address="0.0.0.0"
 	- On 10.10.5.3, made same changes as above except server-id set to 3
-
-
+- To allow MySQL to communicate without passing credentials,
+    - Go to base folder of root user 
+        - cd ~
+    - Create file .my.cnf with contents
+        -   [client]
+            user=<root user name>
+            password=<root passwd>
+            host=localhost
 
 
 Keepalived Enabling

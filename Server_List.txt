@@ -1,0 +1,8 @@
+10.10.5.2 - Ops1 - Simplus + MySQL
+10.10.5.3 - Ops2 - Simplus + MySQL
+10.10.5.4 - Auto1 - MySQL
+10.10.5.5 - Auto2 - MySQL
+10.10.5.6 - Hist1 - MySQL
+10.10.5.7 - Hist2 - MySQL
+10.10.5.8 - Web1 - Tomcat
+10.10.5.9 - Web2 - Tomcat
