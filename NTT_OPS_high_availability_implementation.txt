@@ -1,0 +1,95 @@
+NTT DATA High Availability setup
+================================
+
+Initial setup:
+
+- Logged into user vegyan
+- Moved to root user using command `su -`. For exiting to user vegyan, type `exit`.
+- On both OPS and WEB servers
+	- Created folder ha_setup under /home/vegyan
+	- Created folders orig_system (to hold backups) and post_ha_system (to hold system changes) 
+- On OPS servers,
+	- Copied existing MySQL my.cnf file into orig_system folder
+- On WEB servers,
+	- Created Tomcat check script in post_ha_system folder
+- On both OPS and WEB servers,
+	- Installed keepalived
+		- yum install keepalived
+	- Check if keepalived is installed
+		- which keepalived
+	- Copied original keepalived.conf to orig_system folder
+	- Checked keepalived status
+		- command `systemctl status keepalived`
+		- Active: inactive (dead)
+- Identified the interface on the servers. Found ens192.
+	-  command `ip route`
+	- default via 10.10.5.1 dev ens192 proto static metric 101
+- Checked Firewall status on all servers. Found Inactive.
+	- command `systemctl status firewalld`
+	- Active: inactive (dead)
+- On both OPS and WEB servers
+	- Created a new keepalived.conf in post_ha_system folder
+- On both OPS servers,
+	- Created a long running script for testing purposes
+		- script test_longrunning_script.sh in post_ha_system
+	- Created a health check script for long running scipt
+		- script check_longrunning_script.sh in post_ha_system
+	- Edited post_ha_system keepalived.conf
+		- Updated health check script
+		- Updated Interface name
+		- Decided on 10.10.5.11 as stand-in Virtual IP
+		- Disabled notify scripts
+		- Updated priority to 101 on 10.10.5.2 and 100 on 10.10.5.3
+- On both OPS servers,
+	- On 10.10.5.2, Created replication MySQL user and granted permissions
+		- mysql> CREATE USER 'repl101052'@'%' IDENTIFIED BY 'hiavrpl';
+		- mysql> GRANT REPLICATION SLAVE ON *.* TO 'repl101052'@'%';
+		- mysql> flush privileges;
+	- On 10.10.5.3, Created replication MySQL user and granted permissions
+		- mysql> CREATE USER 'repl101053'@'%' IDENTIFIED BY 'hiavrpl';
+		- mysql> GRANT REPLICATION SLAVE ON *.* TO 'repl101053'@'%';
+		- mysql> flush privileges;
+- In preparation for replication, made below changes to post_ha_system my.cnf
+	- On 10.10.5.2,
+		- Added the following entries
+			- server-id=1
+			- log-bin=mysql-bin
+			- sync_binlog=1
+			- replicate-do-db = Vegayan
+			- binlog_do_db = Vegayan
+		- Uncommented the following entries
+			- log_slave_updates=ON
+			- log_bin=binlog
+		- Commented the following entries
+			- server_id=10
+			- bind_address="0.0.0.0"
+	- On 10.10.5.3, made same changes as above except server-id set to 3
+
+
+
+
+Keepalived Enabling
+
+- Keepalived debug commands
+	- systemctl status keepalived
+	- cat /var/log/messages | grep keepalived
+	- journalctl -u keepalived -f
+	- journalctl -u keepalived -n 50
+	- ip a | grep <virtual-ip>
+- On OPS servers,
+	- Copied keepalived.conf and health check script/s from post_ha_system to /etc/keepalived
+		- Added 755 permissions to health check script/s
+	- Started keepalived process
+		- systemctl start keepalived
+	- Checked keepalived status for errors/warnings
+		- systemctl status keepalived
+- On WEB servers,
+	- Copied keepalived.conf and health check script/s from post_ha_system to /etc/keepalived
+		- Added 755 permissions to health check script/s
+	- Started keepalived process
+		- systemctl start keepalived
+	- Checked keepalived status for errors/warnings
+		- systemctl status keepalived
+
+
+

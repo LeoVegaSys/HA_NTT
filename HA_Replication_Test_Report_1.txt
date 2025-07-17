@@ -1,0 +1,101 @@
+Replication Test Report  (Credits : Harsh Mishra)
+
+Table: ROUTERTRAFFIC_VLANPRT_SCALE1_TBL_B_TEST_6 
+
+1. Introduction 
+
+This test verifies MySQL replication between Server A (192.168.0.55) and Server B (192.168.0.103) under bulk-insert loads. Each run inserts 100,000 rows every 5 minutes on Server A. We measured replication latency per batch and observed behavior when replication was paused and resumed. 
+
+2. Environment & Configuration 
+
+- MySQL Version: Same on both servers 
+- Initial State: 
+    - Both servers’ ROUTERTRAFFIC_VLANPRT_SCALE1_TBL_B_TEST_6 tables empty (0 rows) 
+    - Replication threads stopped (Slave_IO_Running: No, Slave_SQL_Running: No) 
+- Replication Setup: 
+    - Enabled (START SLAVE;) on both servers before starting inserts 
+    - auto_increment_increment=2, auto_increment_offset configured to prevent PK collisions 
+
+3. Test Procedure 
+
+1. Start Replication on A and B 
+   – Verified both I/O and SQL threads were running (Slave_IO_Running: Yes, Slave_SQL_Running: Yes). 
+2. Perform Bulk Inserts on Server A 
+   – Cron job executed every 5 minutes, each inserting 100,000 rows. 
+   – Five consecutive intervals (5 × 100,000 = 500,000 rows total). 
+3. Measure Replication Times 
+   – After each 100,000-row insert, recorded time for Server B to reflect those rows. 
+4. Pause Replication & Continue Inserts 
+   – After 500,000 rows, issued STOP SLAVE; on both. 
+   – Server A: two more 100,000-row batches → 700,000 rows. 
+   – Server B: two 100,000-row batches (while replication off) → 700,000 rows. 
+5. Resume Replication 
+   – START SLAVE; on both. 
+   – Each server applied the other’s pending 200,000 rows, reaching 900,000 rows each. 
+
+ 
+
+ 
+
+ 
+
+4. Data & Timing Summary 
+
+Interval                        Server A Rows After Insert          Server B Rows Observed          Replication Latency 
+
+1 × 100,000 (5 min)             100,000                             100,000                         3 min 45 s 
+
+2 × 100,000 (10 min total)      200,000                             200,000                         4 min 10 s (2nd batch) 
+
+3 × 100,000 (15 min)            300,000                             300,000                         3 min 50 s 
+
+4 × 100,000 (20 min)            400,000                             400,000                         3 min 55 s 
+
+5 × 100,000 (25 min)            500,000                             500,000                         4 min 05 s 
+
+6 × 100,000 (30 min)**          600,000                             500,000                         – (replication paused) 
+
+7 × 100,000 (35 min)**          700,000                             500,000                         – (replication paused) 
+
+2 × 100,000 on B (40 min)**     700,000                             700,000                         7 mins s 
+
+Resume Replication              700,000 → 900,000                   700,000 → 900,000               Total catch-up: 9 min 26 s for 200,000 rows 
+
+Notes: 
+- Rows 6–7: replication stopped on both servers; inserts happened locally. 
+- Final two pending batches (200,000 rows each way) took 9 min 26 s to fully synchronize. 
+
+ 
+
+5. Observations & Analysis 
+
+1. Steady-State Replication: 
+   - For each 100,000-row batch, Server B applied within 3–4 minutes, well under the 5-minute interval. 
+2. Replication After Pause on Both Servers: 
+   - When replication resumed with two 100,000-row batches queued from each server (i.e. 400,000 total events per server), the SQL threads required 9 min 26 s to process 200,000 rows (each direction), indicating increased overhead when processing larger relay-log backlogs. 
+    
+
+6. Conclusions 
+
+- Replication Throughput: 
+   - Under continuous inserts of 100,000 rows per 5 minutes, replication lag remained under 5 minutes. 
+   - Bulk catch-up of 200,000 rows took ~9.5 minutes, indicating some nonlinear overhead. 
+- Resilience: 
+   - Pausing replication did not result in data loss; pending inserts were correctly applied upon resume. 
+- Auto-Increment Settings: 
+   - Correct configuration prevented primary-key collisions during bi-directional resynchronization. 
+
+8. Appendix 
+
+Key Commands: 
+SHOW SLAVE STATUS\G 
+START SLAVE; 
+STOP SLAVE; 
+SELECT COUNT(*) FROM ROUTERTRAFFIC_VLANPRT_SCALE1_TBL_B_TEST_6; 
+SELECT MAX(TxnID) FROM ROUTERTRAFFIC_VLANPRT_SCALE1_TBL_B_TEST_6; 
+ 
+Bulk-Insert Cron (Server A): 
+* * * * * sh /home/vegayan/ntt/scripts/replication_script.sh >> /home/vegayan/ntt/scripts/replication_script.log 2>&1 
+ 
+Bulk-Insert Script (Server B, replication off): 
+* * * * * sh /home/vegayan/ntt/scripts/replication_script.sh >> /home/vegayan/ntt/scripts/replication_script.log 2>&1 

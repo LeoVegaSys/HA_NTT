@@ -1,0 +1,778 @@
+A load balancer, such as HAProxy, is handy in handling the traffic to your site.  
+
+However, you may get a case where availability is not guaranteed.  
+
+Keepalived is an open-source software that ensures high availability by managing the IP failover with your load balancer and works seamlessly with HAProxy. 
+
+https://www.haproxy.org/download/3.0/src/haproxy-3.0.10.tar.gz 
+
+=====================   Local   =========================================== 
+
+To set up test server, the VM approach is utilized. 
+
+To create VM, VirtualBox is being used. 
+
+For Windows system, install executable from  Oracle VirtualBox 
+
+Downloaded latest Kali Linux distribution image 
+
+Installed VirtualBox 
+
+Uploaded Kali Linux image onto VirtualBox VM (20GB disk space), with 4GB memory and 2CPUs. 
+
+Installed HAProxy (v3.0.10) and keepalived (v2.3.3) on Linux VM 
+
+ 
+
++++++++++++++++ MYSQL servers +++++++++++++++++++++++++++++++++++++++++++ 
+
+ 
+
+Tried installing HAProxy and keepalived on 192.168.0.55 and 192.168.0.103 
+
+Failed with error : This system is not registered with an entitlement server. You can use subscription-manager to register. 
+
+ 
+
+Checked with provider. Trial period for RHEL has expired. License to be purchased. 
+
+Alternative approach is using RHEL local repository using ISO.  
+
+Looking into this alternative. 
+
+Have requested for WIndows to be installed on MYSQL servers. 
+
+ 
+
+Downloaded tarballs for HAProxy and Keepalived on both servers 
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+
+ 
+
+#OpenAI  
+
+ 
+
+Setting up high availability for MySQL using HAProxy and Keepalived is a common way to ensure that a MySQL service remains highly available and fault-tolerant. The idea is to use HAProxy as a load balancer to distribute MySQL traffic to multiple MySQL servers, while Keepalived ensures automatic failover by managing the virtual IP that points to the active MySQL node. 
+
+This setup is typically used to provide active-passive failover, where one MySQL server is the primary, and the other is secondary. Keepalived ensures that if the primary server fails, the virtual IP will be moved to the secondary server, and HAProxy will automatically reroute traffic. 
+
+Components Overview 
+
+HAProxy: Acts as a load balancer to manage traffic to MySQL servers. 
+
+Keepalived: Manages the virtual IP (VIP) and ensures that in the event of a failure, it automatically switches to the secondary MySQL server. 
+
+MySQL: Two (or more) MySQL servers with replication (usually master-slave configuration) for redundancy. 
+
+Architecture Overview 
+
+HAProxy: Provides load balancing across MySQL servers. 
+
+Keepalived: Provides high availability by managing the floating virtual IP (VIP). 
+
+MySQL: Configured for replication, where the primary is writing data and the secondary is replicating it. 
+
+Prerequisites 
+
+Two MySQL servers (one primary and one secondary) set up with master-slave replication. 
+
+HAProxy installed on a separate server (or on both MySQL servers for load balancing). 
+
+Keepalived installed on both MySQL servers to manage the VIP. 
+
+Step-by-Step Guide 
+
+Step 1: Set Up MySQL Master-Slave Replication 
+
+Ensure you have MySQL replication set up between the primary and secondary servers. This typically involves: 
+
+Primary MySQL Server (Master): The server where data is written. 
+
+Secondary MySQL Server (Slave): The server that replicates data from the primary server. 
+
+Replication Setup is out of scope here but generally involves the following: 
+
+Set the server-id on both MySQL servers. 
+
+Enable binary logging on the primary. 
+
+Create a replication user and grant replication privileges. 
+
+Start replication on the secondary. 
+
+Step 2: Install HAProxy 
+
+Install HAProxy on the server that will act as the load balancer. 
+
+On RHEL/CentOS/Fedora: 
+
+bash 
+
+CopyEdit 
+
+sudo yum install haproxy 
+ 
+
+Configure HAProxy for MySQL load balancing. 
+
+Edit the HAProxy configuration file /etc/haproxy/haproxy.cfg to include the following configuration: 
+
+bash 
+
+CopyEdit 
+
+global 
+    log /dev/log   local0 
+    log /dev/log   local1 notice 
+    maxconn 2000 
+    user haproxy 
+    group haproxy 
+    daemon 
+ 
+defaults 
+    log     global 
+    option  httplog 
+    option  dontlognull 
+    timeout connect 5000ms 
+    timeout client  50000ms 
+    timeout server  50000ms 
+ 
+frontend mysql_front 
+    bind *:3306 
+    mode tcp 
+    default_backend mysql_back 
+ 
+backend mysql_back 
+    mode tcp 
+    balance roundrobin 
+    server mysql_master 192.168.1.100:3306 check 
+    server mysql_slave 192.168.1.101:3306 check 
+ 
+
+Frontend Section (mysql_front): Listens on port 3306 and forwards traffic to the backend. 
+
+Backend Section (mysql_back): Defines the MySQL servers (master and slave). HAProxy will balance traffic between these servers in a round-robin manner. 
+
+Start and enable HAProxy: 
+
+bash 
+
+CopyEdit 
+
+sudo systemctl start haproxy 
+sudo systemctl enable haproxy 
+ 
+
+Verify HAProxy is running and properly load balancing: 
+
+bash 
+
+CopyEdit 
+
+sudo systemctl status haproxy 
+ 
+
+Step 3: Install Keepalived 
+
+Install Keepalived on both MySQL servers to manage the virtual IP. 
+
+On RHEL/CentOS/Fedora: 
+
+bash 
+
+CopyEdit 
+
+sudo yum install keepalived 
+ 
+
+Configure Keepalived on the Primary MySQL Server (/etc/keepalived/keepalived.conf): 
+
+The configuration will set up Keepalived to manage the virtual IP (VIP) for the MySQL servers. 
+
+Edit /etc/keepalived/keepalived.conf on the primary server: 
+
+bash 
+
+CopyEdit 
+
+global_defs { 
+    router_id LVS_DEVEL 
+} 
+ 
+vrrp_instance VI_1 { 
+    state MASTER 
+    interface eth0       # Change eth0 to your network interface name 
+    virtual_router_id 51 
+    priority 101          # Higher priority for the master 
+    advert_int 1 
+    virtual_ipaddress { 
+        192.168.1.150     # Virtual IP address for HAProxy to connect to 
+    } 
+} 
+ 
+
+state MASTER: Defines the primary server. This server will hold the virtual IP. 
+
+priority 101: Higher priority (greater than 100) means this server is the master. 
+
+virtual_ipaddress: The VIP that HAProxy will use. 
+
+Configure Keepalived on the Secondary MySQL Server (/etc/keepalived/keepalived.conf): 
+
+Edit /etc/keepalived/keepalived.conf on the secondary server: 
+
+bash 
+
+CopyEdit 
+
+global_defs { 
+    router_id LVS_DEVEL 
+} 
+ 
+vrrp_instance VI_1 { 
+    state BACKUP 
+    interface eth0 
+    virtual_router_id 51 
+    priority 99          # Lower priority for the backup server 
+    advert_int 1 
+    virtual_ipaddress { 
+        192.168.1.150     # Same virtual IP address as the primary server 
+    } 
+} 
+ 
+
+state BACKUP: Defines the secondary server, which will take over the VIP if the primary fails. 
+
+priority 99: Lower priority than the master, so it will only become the master if the primary server fails. 
+
+Start and enable Keepalived: 
+
+bash 
+
+CopyEdit 
+
+sudo systemctl start keepalived 
+sudo systemctl enable keepalived 
+ 
+
+Check Keepalived status: 
+
+bash 
+
+CopyEdit 
+
+sudo systemctl status keepalived 
+ 
+
+Ensure that Keepalived is running and managing the VIP. 
+
+Step 4: Test the High Availability Setup 
+
+Check the Virtual IP (VIP): 
+
+On both servers, check if the VIP (192.168.1.150 in the example) is active on the primary node: 
+
+bash 
+
+CopyEdit 
+
+ip addr show 
+ 
+
+The VIP should only be on the primary node initially. Once the primary node fails, the VIP should move to the secondary node. 
+
+Test Failover: 
+
+To test the failover: 
+
+Stop MySQL on the primary server. 
+
+Check if Keepalived moves the VIP to the secondary server. 
+
+Verify that HAProxy continues to work and routes traffic to the secondary server. 
+
+Check HAProxy: 
+
+After the failover, you can test if HAProxy continues to serve MySQL traffic: 
+
+bash 
+
+CopyEdit 
+
+mysql -h 192.168.1.150 -u root -p 
+ 
+
+The connection should be established to the secondary MySQL server. 
+
+Step 5: Monitor and Maintain 
+
+Log Monitoring: Regularly check the logs of HAProxy and Keepalived to ensure everything is running smoothly. 
+
+HAProxy logs: /var/log/haproxy.log 
+
+Keepalived logs: /var/log/syslog or /var/log/messages 
+
+Replication Status: Ensure MySQL replication is continuously running and healthy between the master and slave. 
+
+ 
+
+Conclusion 
+
+By following these steps, you will have set up high availability for MySQL using HAProxy for load balancing and Keepalived for managing a virtual IP. This ensures that if the primary MySQL server goes down, the secondary server will take over and serve the traffic seamlessly. 
+
+ 
+
+======================================================================== 
+
+ 
+
+Due to lack of RHEL subscription, attempt is being made to install HAProxy and keepalived from TAR files, downloaded over Internet. 
+
+Local Linux VM is created using Oracle VirtualBox, and installing Kali LInux on it. 
+
+Downloaded keepalived and haproxy TARs on the VM. 
+
+Keepalived comes with libraries built, so no action performed as of now. 
+
+Haproxy does not come pre-built. Steps mentioned in INSTALL doc being followed. 
+
+-> make clean 
+
+-> make -j $(nproc) TARGET=linux-glibc USE_OPENSSL=1 USE_QUIC=1 USE_QUIC_OPENSSL_COMPAT=1 USE_LUA=1 USE_PCRE2=1 
+
+-> sudo make install 
+
+ 
+
+Dependencies issues encountered: 
+
+-> Lua needs to be installed on the system. If absent, please install 
+
+sudo apt-get install lua<version> 
+
+e.g. sudo apt-get install lua5.3 
+
+-> On facing issue		  
+
+unable to automatically detect the Lua library name, you can enforce its name with LUA_LIB_NAME=<name> (where <name> can be lua5.4, lua54, lua, ...).  Stop. 
+
+ 
+
+Add LUA_LIB_NAME=lua5.3 (change version accordingly) to make command 
+
+ 
+
+Final command :  make -j $(nproc) TARGET=linux-glibc USE_OPENSSL=1 USE_QUIC=1 USE_QUIC_OPENSSL_COMPAT=1 LUA_LIB_NAME=lua5.3 USE_LUA=1 USE_PCRE2=1 
+
+ 
+
+-> On facing issue 
+
+In file included from src/ssl_sock.c:62: 
+ 	include/haproxy/openssl-compat.h:17:10: fatal error: openssl/bn.h: No such 		file or directory 
+
+Install dependency using command 
+
+sudo apt-get install libssl-dev 
+
+-> On facing issue 
+
+include/haproxy/regex-t.h:40:10: fatal error: pcre2.h: No such file or 		directory 
+
+Install dependency using command 
+
+sudo apt-get install libpcre2-dev 
+
+-> On facing issue 
+
+src/hlua.c:18:10: fatal error: lauxlib.h: No such file or directory 
+
+Install dependency using command 
+
+sudo apt-get install liblua5.3-dev  
+
+ 
+
+ 
+
+========================================================================= 
+
+Workaround attempts for installing haproxy package on 55 and 103 servers: 
+
+ 
+
+Added symbolic links for haproxy executable at : 
+
+/usr/local/sbin/ 
+
+/usr/local/ 
+
+Added following dummy references in /usr/lib64 to resolve haproxy dependencies 
+
+Libssl.so.3 
+
+Libcrypto.so.3 
+
+Liblua5.3.so.0 
+
+Got GLIBC version issues on trying to verify Haproxy installation (haproxy -v), as package has been built on 2.33/2.40 LDD version Linux server, but 55/103 server has 2.28 GLIBC LLD version 
+
+ 
+
+After adding repository on 55/103,  
+
+Haproxy haproxy-1.8.27-5.el8.x86_64 installed successfully 
+
+Issues faced while installing keepalived: 
+
+Error:  
+
+Problem: package keepalived-2.1.5-9.el8.x86_64 from local-baseos requires libnetsnmpagent.so.35()(64bit), but none of the providers can be installed 
+
+  - package keepalived-2.1.5-9.el8.x86_64 from local-baseos requires libnetsnmpmibs.so.35()(64bit), but none of the providers can be installed 
+
+  - conflicting requests 
+
+  - nothing provides libsensors.so.4()(64bit) needed by net-snmp-agent-libs-1:5.8-30.el8.x86_64 from local-baseos 
+
+(try to add '--skip-broken' to skip uninstallable packages or '--nobest' to use not only best candidate packages) 
+
+Tried adding –nobest, but issue remained 
+
+Have currently completed installation by adding –skip-broken flag.  
+
+ 
+
+ 
+
+Steps after haproxy and keeplived installation 
+
+Create script to check if process is running 
+
+#!/bin/bash 
+
+#Check if MySQL is running by attempting a connection 
+
+mysqladmin ping -u root --password='your_mysql_root_password' > /dev/null 2>&1 	if [ $? -eq 0 ]; then  
+
+exit 0  
+
+else  
+
+exit 1  
+
+fi 
+
+ 
+
+To start haproxy and keepalived, command:  
+
+systemctl enable haproxy keepalived 
+
+Systemctl start haproxy keepalived 
+
+To check status of haproxy, run 
+
+Systemctl status haproxy.service 
+
+To identify issues in starting haproxy service,  
+
+grep haproxy /var/log/audit/audit.log 
+
+ausearch -m AVC -ts recent | grep haproxy 
+
+ 
+
+On trying to bind haproxy to port 3306, got error that 3306 is already bound to mysql. 
+
+Command to check binding: 
+
+semanage port -l | grep 3306 
+
+To check if any port is already assigned to haproxy, run same command with search for haproxy 
+
+semanage port -l | grep haproxy 
+
+Currently not using haproxy for HA 
+
+ 
+
+To check for status of keepalived service, run 
+
+Systemctl status keepalived  
+
+Check Active field for current status (expected: active running ) 
+
+For issues in keepalived startup, check 
+
+Warnings or errors in ‘systemctl status keepalived’ 
+
+cat /var/log/messages | grep Keepalived 
+
+Use ‘ip route’ to identify correct interface for server 
+
+Check for ‘default via’ 
+
+Sample: 
+
+default via 192.168.0.111 dev wlp3s0 proto dhcp src 192.168.0.55 metric 600  
+
+192.168.0.0/24 dev wlp3s0 proto kernel scope link src 192.168.0.55 metric 600  
+
+192.168.122.0/24 dev virbr0 proto kernel scope link src 192.168.122.1 linkdown 
+
+Once keepalived is up and running, check state using command: 
+
+journalctl -u keepalived -b | grep -i "state" 
+
+Provides information on current status of process (MASTER/BACKUP/FAULT) 
+
+To run checkup scripts from keepalived, user keepalived_script needs to be created and provided executable permissions on the scripts as below 
+
+useradd -r -s /sbin/nologin keepalived_script 
+
+Check if user is added in /etc/passwd 
+
+Make sure there is no pre-existing user with the same name 
+
+Add ownership and executable permissions using commands 
+
+chown keepalived_script:keepalived_script <script name/s> 
+
+chmod 750 <script name/s> 
+
+If possible, provide full path for any packages being used in the checkup scripts 
+
+Keepalived uses a minimal environment, so make sure to check environment variables as keepalived is not knowledgeable of them 
+
+Provide minimal permissions to access resources as required 
+
+Command for mysql process check changes from : 
+
+‘mysqladmin ping -u root -pokhla3 > /dev/null 2>&1’ to  
+
+‘/usr/local/mysql/bin/mysqladmin ping -u root -pokhla3 --protocol=TCP > /dev/null 2>&1’ 
+
+ 
+
+ To check if failover has happened, run command: 
+
+Ip a | grep <Virtual IP> 
+
+If there is a response similar to ` inet XXX.XXX.XXX.XXX/XX scope global XXXX `, that host is MASTER 
+
+If no response, BACKUP is identified. 
+
+To prevent immediate failover back to MASTER, the following alternatives are available: 
+
+Nopreempt on BACKUP – does not switch back unless BACKUP goes down 
+
+preempt_delay on MASTER – fails over with delay 
+
+The fix to make this work is to change MASTER to BACKUP (with higher base priority) 
+
+High advert_int value – Delays advertisement interval 
+
+High garp_master_delay value – Delays Grauitious ARPs for failover alerting 
+
+Create keepalived_script user to run health check script 
+
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin keepalived_script 
+
+Assign keepalived_script as user to health check script/s 
+
+chown keepalived_script:keepalived_script <script/s> 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+======================================================================= 
+
+Getting HAProxy to work on MySQL: 
+
+Created haproxy-specific user on mysql database user table 
+
+CREATE USER 'haproxy_check'@'%' IDENTIFIED BY 'hiavrpl';  
+
+GRANT USAGE ON *.* TO 'haproxy_check'@'%'; 
+
+FLUSH PRIVILEGES; 
+
+ 
+
+ 
+
+========================================================================= 
+
+Testing HA on Linux: 
+
+ 
+
+External host : 192.168.0.56 
+
+HA hosts : 192.168.0.103 / 192.168.0.55 
+
+Virtual IP : 192.168.0.100 
+
+Created user testuser :: hiavrpl on both HA hosts, with all permissions 
+
+mysql> CREATE USER 'testuser'@'%' IDENTIFIED BY 'hiavrpl'; 
+
+mysql> GRANT ALL PRIVILEGES ON . TO 'testuser'@'%' WITH GRANT OPTION; 
+
+mysql> flush privileges; 
+
+Connected to HA host’s mysql user testuser, from exteral host, using VIP hostname 
+
+Tried inserting records into dummy table  
+
+/usr/local/mysql/bin/mysql -u testuser -phiavrpl -h 192.168.0.100 -D Vegayan_NTT -e "insert into Temp_Alarms (NodeName, EventType) VALUES ('NODE_12', 'RCC Up');" 
+
+Low volume testing successful 
+
+Virtual IP working 
+
+Replication working 
+
+MASTER switchover delay working 
+
+ 
+
+========================================================================= 
+
+Trying to run script on server failover: 
+
+Added notify/notify_master/notify_backup/notify_fault directive in keepalived.conf 
+
+Created script to write log with date and latest status (MASTER/BACKUP/FAULT) 
+
+Attached script to notify mechanism 
+
+SELinux policy does not allow keepalived from running scripts 
+
+Tried executing script from command line - SUCCESS 
+
+Changed script user from root to keepalived_script - FAILURE 
+
+Added execute premissions to script - FAILURE 
+
+Check SELinux is enabled using command `sestatus` 
+
+Tried to change SELinux security context  - FAILURE 
+
+chcon -t keepalived_exec_t <script name> 
+
+Context change can be verified 
+
+Ls –Z <script name> 
+
+Found error messages in log messages 
+
+cat /var/log/messages | grep keepalived 
+
+Tried to move the script out from /etc/keepalived to /usr/local and / - FAILURE 
+
+Tried to manage SELinux context for script : --- FAILURE 
+
+sudo semanage fcontext -a -t keepalived_exec_t "/path/to/script.sh"  
+
+sudo restorecon -v /path/to/script.sh 
+
+To undo : 
+
+sudo semanage fcontext -d "/path/to/script.sh" 
+
+sudo restorecon -v /path/to/script.sh 
+
+Tried to change SELinux security context  - SUCCESS 
+
+chcon -t keepalived_unconfined_script_exec_t  <script name> 
+
+https://serverfault.com/questions/709428/track-script-doesnt-work-after-keepalived-update/845843#845843 
+
+Created test log needs owner to be set to keepalived_script for logs to start writing to it 
+
+Try adding owner and permissions in notify script 
+
+Notify scripts were not running on keepalived state transition. Solved by adding : 
+
+Script_user directive in global_defs 
+
+To resolve error : SECURITY VIOLATION - scripts are being executed but script_security not enabled. 
+
+Added enable_script_security directive in global_defs 
+
+ 
+
+ 
+
+======================================================================= 
+
+ 
+
+Alternative approach to allow primary DB writes only: 
+
+MySQL provides a global variable super_read_only, to restrict writes to DB where it is disabled 
+
+Valid values for super_read_only  
+
+0 (writes allowed) 
+
+1 (read only) 
+
+Can be accessed by command `select @@GLOBAL.super_read_only;` 
+
+Adding a file named .my.cnf to the user’s base folder, allows invoking mysql process without providing credentials 
+
+Contents of .my.cnf : 
+
+[client] 
+
+user=<mysql-user> 
+
+password=<mysql-user-password> 
+
+host=localhost 
+
+Provide 600 permissions to .my.cnf for security purposes 
+
+Since script runs in its own environment, the right user needs to be passed, to allow access to the right dependent file, as below 
+
+export HOME=/root 
+
+ 
+
+========================================================================= 
+
+For avoiding replication slave start on MySQL restart, 
+
+Flag skip_slave_start needs to be set in my.cnf 
+
+1 to skip slave start 
+
+0 to allow slave start 
+
+======================================================================== 
+
+In shell scripts, better to run MySQL commands in background, to avoid incomplete script run in case database is stuck. 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 

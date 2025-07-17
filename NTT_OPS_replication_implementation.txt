@@ -1,0 +1,162 @@
+Description:
+	Hi-Availability setup involves setting master-slave OR master-master database data replication feature on relevant database servers. This allows creation of redundant backup servers, in case of the primary being down. On the event of the primary database process failing, in case of master-master replication, the secondary servers should continue receiving data and on the primary becoming available, the new data will be replicated onto the primary. 
+
+Servers involved :
+	192.168.0.55
+	192.168.0.103
+
+Important files:
+	/etc/my.cnf
+
+==========================================================================================================================================================================
+REPLICATION SETUP:
+
+- Assign unique server ID to MASTER & SLAVE/s in my.cnf. Value between 1 and 2^32 - 1. MASTER preferably has a lower server ID value.
+- Binary logging should be enabled on MASTER and SLAVE/s
+
+	[mysqld]
+	log-bin=mysql-bin
+	server-id=1
+
+- Confirm that innodb_flush_log_at_trx_commit=1 and sync_binlog=1 are set in my.cnf. Required for the greatest possible durability and consistency in a replication setup using InnoDB with transactions.
+- Ensure that the skip_networking and bind_address system variables are disabled/commented on MASTER's my.cnf.
+- For preserving the commit order on MASTER and SLAVE, ensure that slave-preserve-commit-order is enabled (ON). This option can only enforce commit order if the SLAVE has the binary log turned on (log_bin=binlog) and applier threads are logging to its own binary log (log_slave_updates=ON)
+- For allowing changes to specific database/s to be logged, use directive binlog_do_db=<DB-to-be-logged Name> under [mysqld] section. This change is to be made on MASTER.
+- For allowing changes to specific database/s to be replicated onto slave, use directive replicate-do-db=<DB-to-be-logged Name> under [mysqld] section. This change is to be made on SLAVE.
+- To disable replication slave start on mysql restart, skip-slave-start flag can be set to 1 in my.cnf
+
+==========================================================================================================================================================================
+MASTER SLAVE REPLICATION:
+
+- Create a USER on MASTER for replication purposes, and grant replication permissions to the same. The SLAVE/s will use this USER to connect to MASTER.
+	
+	mysql> CREATE USER 'repl'@'%' IDENTIFIED BY 'password';
+	mysql> GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
+
+- Following this, it’s good practice to run the FLUSH PRIVILEGES command, to free up any cached server memory for the preceding CREATE USER and GRANT statements.
+
+	mysql> FLUSH PRIVILEGES;
+
+- On MASTER, flush all tables and block write statements. If you have existing data that needs be to synchronized with the replica before you start replication, leave the client running so that the lock remains in place. This prevents any further changes being made, so that the data copied to the replica is in synchrony with the source.
+
+	mysql> FLUSH TABLES WITH READ LOCK
+
+- Read lock can be released either by ending the client session, or running the command UNLOCK TABLES.
+- On MASTER, determine the current binary log file name and position 
+
+	mysql> SHOW MASTER STATUS;
+	mysql> SHOW MASTER STATUS\G
+
+- On SLAVE, stop any existing slave processes 
+	
+	mysql> STOP SLAVE;
+
+- On SLAVE, to set up the replica to communicate with the source for replication, configure with the necessary connection information
+
+	mysql> CHANGE MASTER TO
+            ->     MASTER_HOST='192.168.0.103',
+            ->     MASTER_USER='repl',
+            ->     MASTER_PASSWORD='password',
+            ->     MASTER_LOG_FILE='recorded_log_file_name',
+            ->     MASTER_LOG_POS=recorded_log_position;
+
+- On SLAVE, start the replication threads
+	
+	mysql> START SLAVE
+
+- On SLAVE, determine slave process status
+
+	mysql> SHOW SLAVE STATUS;
+	mysql> SHOW SLAVE STATUS\G
+	
+- If SLAVE is not able to connect to MASTER for replication, 
+	i. Try to establish mysql connection from SLAVE to MASTER from command line, using replication user credentials (-u USER -pPASSWORD) and MASTER hostname (-h HOSTNAME).
+	ii. Check if firewall is enabled for the servers, and disable if enabled
+        systemctl status/stop/disable firewalld
+
+==========================================================================================================================================================================
+MASTER MASTER replication
+
+MASTER1 :: 192.168.0.103
+MASTER2 :: 192.168.0.55
+
+- Create a USER on MASTER1 for replication purposes, and grant replication permissions to the same. The other MASTER/s will use this USER to connect to MASTER1.
+	
+	mysql> CREATE USER 'repl1'@'%' IDENTIFIED BY 'password';
+	mysql> GRANT REPLICATION SLAVE ON *.* TO 'repl1'@'%';
+
+- Following this, it’s good practice to run the FLUSH PRIVILEGES command, to free up any cached server memory for the preceding CREATE USER and GRANT statements.
+
+	mysql> FLUSH PRIVILEGES;
+
+- Create a USER on MASTER2 for replication purposes, and grant replication permissions to the same. The other MASTER/s will use this USER to connect to MASTER2.
+	
+	mysql> CREATE USER 'repl2'@'%' IDENTIFIED BY 'password';
+	mysql> GRANT REPLICATION SLAVE ON *.* TO 'repl2'@'%';
+
+- Following this, it’s good practice to run the FLUSH PRIVILEGES command, to free up any cached server memory for the preceding CREATE USER and GRANT statements.
+
+	mysql> FLUSH PRIVILEGES;
+
+- On both MASTERs, flush all tables and block write statements. If you have existing data that needs be to synchronized with the replica before you start replication, leave the client running so that the lock remains in place. This prevents any further changes being made, so that the data copied to the replica is in synchrony with the source.
+
+	mysql> FLUSH TABLES WITH READ LOCK
+
+- Read lock can be released either by ending the client session, or running the command UNLOCK TABLES.
+- On MASTERs, determine the current binary log file name and position 
+
+	mysql> SHOW MASTER STATUS;
+	mysql> SHOW MASTER STATUS\G
+
+- On MASTERs, stop any existing slave processes 
+	
+	mysql> STOP SLAVE;
+
+- On MASTER1, to set up the replica to communicate with the source for replication, configure with the necessary connection information
+
+	mysql> CHANGE MASTER TO
+            ->     MASTER_HOST='192.168.0.55',
+            ->     MASTER_USER='repl2',
+            ->     MASTER_PASSWORD='password',
+            ->     MASTER_LOG_FILE='recorded_log_file_name_on_master2',
+            ->     MASTER_LOG_POS=recorded_log_position_on_master2;
+
+- On MASTER2, to set up the replica to communicate with the source for replication, configure with the necessary connection information
+
+	mysql> CHANGE MASTER TO
+            ->     MASTER_HOST='192.168.0.103',
+            ->     MASTER_USER='repl1',
+            ->     MASTER_PASSWORD='password',
+            ->     MASTER_LOG_FILE='recorded_log_file_name_on_master1',
+            ->     MASTER_LOG_POS=recorded_log_position_on_master1;
+
+- On MASTERs, start the replication threads
+	
+	mysql> START SLAVE
+
+- On MASTERs, determine slave process status
+
+	mysql> SHOW SLAVE STATUS;
+	mysql> SHOW SLAVE STATUS\G
+	
+- If SLAVE is not able to connect to MASTER for replication, 
+	i. Try to establish mysql connection from SLAVE to MASTER from command line, using replication user credentials (-u USER -pPASSWORD) and MASTER hostname (-h HOSTNAME).
+	ii. Check if firewall is enabled for the servers, and disable if enabled
+        systemctl status/stop/disable firewalld
+
+========================================================================================================
+
+Stress testing:
+
+Plan:
+    - Load 1L records from a source database table onto 7 copy tables.
+    - Initiate data load on MASTER1 at preset intervals
+    - Disable database process on MASTER1
+    - Initiate data load on MASTER2 at preset intervals
+    - Enable database process on MASTER1
+    - Check if latest data loads are going through on MASTER2
+
+Issues involved:
+    - Resolving primary key field constraint
+    - Creating dummy copy tables
+
