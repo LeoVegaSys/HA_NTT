@@ -1,0 +1,77 @@
+For NTT, 10.10.5.3 is the secondary OPS server.
+
+Possible server states
+    -   MASTER 
+    -   BACKUP -- initial
+    -   FAULT
+
+Processes to be monitored:
+    -   Simplus
+    -   MySQL
+
+Monitoring performed by
+    - Keepalived
+        - Configuration maintained in Keepalived.conf
+
+Monitoring script
+    - check_service.sh
+        - Checks if BOTH Simplus and MySQL processes are operational
+        - Returns 0 on success / 1 on failure
+
+Notification scripts
+    - send_mail_1.py
+        - Sends Notification mail on server state change
+    - toggle_sro_m.sh
+        - Handles transition events and actions to be performed thereof
+
+Keepalived logic
+    - Directives in global_defs apply for the entire script.
+        - script_user sets the user permissions given to Keepalived to perform actions
+    - track_script section provides details of vrrp script to be monitored
+    - priority property in vrrp instance section sets the initial value 
+    - interval denotes the time gap between script runs
+    - fall denotes the number of times script has to return failure, 
+        for server to transition to BACKUP
+    - rise denotes the number of times script has to return failure, 
+        for server to transition to MASTER
+    - weight denotes the amount by which the priority is reduced (on failure)
+        or increased (on success) 
+        - if, for a server in MASTER state, the check script returns failure 
+            fall number of times, it transitions to BACKUP state by reducing 
+            priority by weight 
+        - if, for a server in BACKUP state, the check script returns success 
+            rise number of times, it transitions to MASTER state by increasing 
+            priority by weight
+    - if either of the monitored processes fails,
+        - the check script is executed 6 times with an interval of 60 seconds between attempts.
+    - virtual_ipaddress section stores the virtual IP, held by the MASTER server
+        in the group of hosts monitored by Keepalived
+    - On server state change / transition, the notify section script is run.
+    - On server state change to MASTER, the notify_master section script is run.
+    - On server state change to BACKUP, the notify_backup section script is run.
+    - On server state change to FAULT, the notify_fault section script is run.
+
+Monitoring script logic
+    - Process IDs for Simplus and MySQL processes are identified
+    - If process ID is not available for either of these processes, script returns 1 (failure)
+
+Notification script/s logic
+    - The notify script passes host IP to the mailing script
+        - Other than the IP, the notify section script recieves
+            - VRRP instance
+            - changed / current state
+            - current priority
+    - The notify_master script performs the following actions:
+        - Shift MySQL to Read/Write mode
+        - Rename Simplus polling trigger file, to initiate polling
+        - Uncommenting crontab commands, through toggle_cron script
+    - The notify_backup script performs the following actions:
+        - Rename Simplus polling trigger file, to block polling
+        - Shift MySQL to Read Only mode
+        - Commenting crontab commands, through toggle_cron script
+        - Restart Simplus process
+    - The notify_fault script performs the following actions:
+        - Rename Simplus polling trigger file, to block polling
+        - Shift MySQL to Read Only mode
+        - Commenting crontab commands, through toggle_cron script
+        - Restart Simplus process

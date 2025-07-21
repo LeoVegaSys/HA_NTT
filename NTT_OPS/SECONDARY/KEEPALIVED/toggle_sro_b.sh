@@ -48,6 +48,7 @@ if [ "$1" == "0" ]; then        # MASTER mode
 
     echo $(date) "MST :: Turning super_read_only OFF" >> "$LOGFILE"
 #    /usr/local/mysql/bin/mysql -e "SET GLOBAL super_read_only = OFF;" &
+#    /usr/local/mysql/bin/mysql -e "SET GLOBAL read_only = OFF;" &
     /usr/local/mysql/bin/mysql -e "SET GLOBAL super_read_only = ON;" &  # For testing purposes
     
     echo $(date) "MST :: Sleeping 2 in MASTER mode" >> "$LOGFILE"

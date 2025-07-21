@@ -1,0 +1,56 @@
+For NTT, 10.10.5.9 is the secondary WEB server.
+
+Possible server states
+    -   MASTER 
+    -   BACKUP -- initial
+    -   FAULT
+
+Processes to be monitored:
+    -   Tomcat
+
+Monitoring performed by
+    - Keepalived
+        - Configuration maintained in Keepalived.conf
+
+Monitoring script
+    - check_service.sh
+        - Checks if Tomcat process is operational
+        - Returns 0 on success / 1 on failure
+
+Notification scripts
+    - send_mail_1.py
+        - Sends Notification mail on server state change
+
+Keepalived logic
+    - Directives in global_defs apply for the entire script.
+        - script_user sets the user permissions given to Keepalived to perform actions
+    - track_script section provides details of vrrp script to be monitored
+    - priority property in vrrp instance section sets the initial value 
+    - interval denotes the time gap between script runs
+    - fall denotes the number of times script has to return failure, 
+        for server to transition to BACKUP
+    - rise denotes the number of times script has to return failure, 
+        for server to transition to MASTER
+    - weight denotes the amount by which the priority is reduced (on failure)
+        or increased (on success) 
+        - if, for a server in MASTER state, the check script returns failure 
+            fall number of times, it transitions to BACKUP state by reducing 
+            priority by weight 
+        - if, for a server in BACKUP state, the check script returns success 
+            rise number of times, it transitions to MASTER state by increasing 
+            priority by weight
+    - if the monitored process fails,
+        - the check script is executed 3 times with an interval of 2 seconds between attempts.
+    - virtual_ipaddress section stores the virtual IP, held by the MASTER server
+        in the group of hosts monitored by Keepalived
+    - On server state change / transition, the notify section script is run.
+
+Monitoring script logic
+    - If Tomcat process is NOT running, script returns 1 (failure)
+
+Notification script/s logic
+    - The notify script passes host IP to the mailing script
+        - Other than the IP, the notify section script recieves
+            - VRRP instance
+            - changed / current state
+            - current priority

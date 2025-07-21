@@ -1,0 +1,19 @@
+Below are a list of points that count as learnings gathered over the idea initiation and testing  stages
+
+- Check if firewall is running
+  - systemctl status firewalld
+  - Should be inactive
+  - Active firewalls do not allow replication users to connect, blocking ports
+
+- Confirm if MySQL is running on the expected port, either default port 3306 or any other port
+
+- Turning SUPER_READ_ONLY flag ON on mysql, turns READ_ONLY ON by default
+- However, turning SUPER_READ_ONLY flag OFF DOES not turn READ_ONLY OFF.
+
+- To stop replication slave from starting by default on starting / restarting MySQL process, add skip-slave-start=1 under [mysqld] in my.cnf
+
+- While starting the High Availability system,
+  - First setup the DB replication process, with initial MASTER SLAVE replication setup, followed by MASTER MASTER REPLICATION setup
+  - After this, set up Keepalived, with health check scripts first and then notify scripts.
+  - To initiate HA setup, start keepalived process on MASTER host, followed by BACKUP host/s
+  - To stop HA setup, stop keepalived process on BACKUP host/s, followed lastly by MASTER host

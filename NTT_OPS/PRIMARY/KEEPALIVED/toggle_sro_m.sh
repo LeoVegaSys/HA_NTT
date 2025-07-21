@@ -33,6 +33,7 @@ if [ "$1" == "0" ]; then        # MASTER
 
     echo $(date) "Turning super_read_only OFF" >> "$LOGFILE"
 #    /usr/local/mysql/bin/mysql -e "SET GLOBAL super_read_only = OFF;" &
+#    /usr/local/mysql/bin/mysql -e "SET GLOBAL read_only = OFF;" &
 
     # Start crontab processes 
     echo $(date) "Turning CRONTAB ON" >> "$LOGFILE"
