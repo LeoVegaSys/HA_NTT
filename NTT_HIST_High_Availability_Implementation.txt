@@ -1,0 +1,76 @@
+NTT DATA High Availability setup (Credits : Akash Mishra)
+================================
+
+Initial setup:
+
+- Logged into user vegyan
+- Moved to root user using command `su -`. For exiting to user vegyan, type `exit`.
+
+- On both Hist1 and Hist2 servers
+	- Created folder HA_Setup under /home/vegyan
+	- Created folders Orig_System (to hold backups) and Post_HA_System (to hold system changes) 
+
+- On Hist1 servers,
+	- Copied existing MySQL my.cnf file into Orig_System folder
+- On Hist2 servers,
+	- Created Tomcat check script in Post_HA_System folder
+
+- On both Hist1 and Hist2 servers,
+	- Installed keepalived
+		- yum install keepalived
+	- Check if keepalived is installed
+		- which keepalived
+	- Copied original keepalived.conf to Orig_System folder
+	- Checked keepalived status
+		- command `systemctl status keepalived`
+		- Active: inactive (dead)
+
+- Identified the interface on the servers. Found ens192.
+	-  command `ip route`
+	- default via 10.10.5.1 dev ens192 proto static metric 101
+	
+
+- Checked Firewall status on all servers. Found Inactive.
+	- command `systemctl status firewalld`
+	- Active: inactive (dead)
+
+- On both Hist1 and Hist2 servers
+	- Created a new keepalived.conf in Post_HA_System folder
+
+- On both Hist1 and Hist2 servers,
+	- Created a long running script for testing purposes
+		- script test_longrunning_script.sh in Post_HA_System
+	- Created a health check script for long running scipt
+		- script check_longrunning_script.sh in Post_HA_System
+	- Edited Post_HA_System keepalived.conf
+		- Updated health check script
+		- Updated Interface name
+		- Decided on 10.10.5.14 as stand-in Virtual IP
+		- Disabled notify scripts
+		- Updated priority to 101 on 10.10.5.6 and 100 on 10.10.5.7
+
+- On both Hist1 and Hist2 servers,
+	- On 10.10.5.6, Created replication MySQL user and granted permissions
+		- mysql> CREATE USER 'repl101056'@'%' IDENTIFIED BY 'hiavrpl';
+		- mysql> GRANT REPLICATION SLAVE ON *.* TO 'repl101056'@'%';
+		- mysql> flush privileges;
+	- On 10.10.5.7, Created replication MySQL user and granted permissions
+		- mysql> CREATE USER 'repl101057'@'%' IDENTIFIED BY 'hiavrpl';
+		- mysql> GRANT REPLICATION SLAVE ON *.* TO 'repl101057'@'%';
+		- mysql> flush privileges;
+
+- In preparation for replication, made below changes to Post_HA_System my.cnf
+	- On 10.10.5.6,
+		- Added the following entries
+			- server-id=1
+			- log-bin=mysql-bin
+			- sync_binlog=1
+			- replicate-do-db = Vegayan
+			- binlog_do_db = Vegayan
+		- Uncommented the following entries
+			- log_slave_updates=ON
+			- log_bin=binlog
+		- Commented the following entries
+			- server_id=10
+			- bind_address="0.0.0.0"
+	- On 10.10.5.7, made same changes as above except server-id set to 3

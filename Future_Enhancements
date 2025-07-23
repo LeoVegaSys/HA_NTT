@@ -1,0 +1,5 @@
+Possible additional enhancements for High Availability
+
+    - Scheduled Binlog backup and purging feature
+    - Input-based script to setup HA on fresh server ??
+    - Data recovery strategy

@@ -5,7 +5,13 @@ Below are a list of points that count as learnings gathered over the idea initia
   - Should be inactive
   - Active firewalls do not allow replication users to connect, blocking ports
 
-- Confirm if MySQL is running on the expected port, either default port 3306 or any other port
+- Check the SELinux policy on the server using sestatus command
+  - If SELinux policy shows Enabled, check the severity of SELinux policy using getenforce command
+  - If severity is either Permissive or Disabled, scripts should behave as expected.
+  - If severity is Enforcing, look out for issues related to logfile creation, script commands execution and user permissions
+  - ** DO THIS ONLY AFTER CONSULTING CLIENT : To set to Permissive SELinux policy, run command setenforce 0
+
+- Confirm if MySQL is running on the expected port, either default port 3306 or any other port. Port 3306 preferred for hassle-free implementation.
 
 - Turning SUPER_READ_ONLY flag ON on mysql, turns READ_ONLY ON by default
 - However, turning SUPER_READ_ONLY flag OFF DOES not turn READ_ONLY OFF.
@@ -17,3 +23,11 @@ Below are a list of points that count as learnings gathered over the idea initia
   - After this, set up Keepalived, with health check scripts first and then notify scripts.
   - To initiate HA setup, start keepalived process on MASTER host, followed by BACKUP host/s
   - To stop HA setup, stop keepalived process on BACKUP host/s, followed lastly by MASTER host
+
+- To comment/uncomment crontab separately, use the toggle_cron.sh script present in /etc/keepalived
+  - Usage to comment cron jobs : sh toggle_cron.sh comment 
+          to uncomment cron jobs : sh toggle_cron.sh uncomment 
+
+- To send test mail feature, use the send_mail_1.py script in /etc/keepalived
+  - The script expects 5 arguments, primary among which are the 1st (server IP) and 5th (server state [MASTER/BACKUP/FAULT]). Others are not being considered as of now.
+  - Usage to send state change to MASTER mail : python send_mail_1.py <Any IP> X Y MASTER Z

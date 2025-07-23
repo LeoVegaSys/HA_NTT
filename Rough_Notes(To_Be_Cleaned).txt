@@ -765,14 +765,54 @@ Flag skip_slave_start needs to be set in my.cnf
 
 In shell scripts, better to run MySQL commands in background, to avoid incomplete script run in case database is stuck. 
 
+======================================================================== 
  
+Tried to add a MySQL flag correction script from inside the keepalived check script, following are the issues faced: 
 
- 
+Since SELinux policy is enforcing on 55/103,  
 
- 
+Dummy log file creation was allowed only on /tmp folder 
 
- 
+Process files like /usr/sbin/ip for ip command were not accessible 
 
- 
+Faced issues with mysql.sock file 
 
- 
+File user permission issues for running script from within keepalived check script 
+
+.my.cnf mysql credentials file was inaccessible from the script 
+
+Creating a local file with credentials in the script folder helped 
+
+Issues were diagnosed from 
+
+Journalctl –u keepalived –f command / systemctl status keepalived 
+
+Showed unstable user permissions on new script file 
+
+Writing script run logs to a seperate log helped identify issues like  
+
+MySQL credentials inaccessibility 
+
+Lack of permissions to execute commands 
+
+Wrong script file name 
+
+Changing SELinux policy to permissive helped 
+
+To check if SELinux is enabled, 
+
+Sestatus 
+
+To check current policy severity level, 
+
+Getenforce 
+
+To set SeLinux policy severity level to permissive, 
+
+Setenforce 0 
+
+To set SELinux policy severity level to Enforcing, 
+
+Setenforce 1 
+
+======================================================================== 
