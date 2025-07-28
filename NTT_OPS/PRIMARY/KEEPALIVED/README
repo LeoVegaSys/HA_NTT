@@ -70,3 +70,25 @@ Notification script/s logic
     - The notify_fault script performs the following actions:
         - Shift MySQL to Read Only mode
         - Commenting crontab commands, through toggle_cron script
+
+-------------------------------------------------------------------------------------------------------
+Additional changes:
+
+Server-level Configuration
+    - .ini file (name format <server name>_ha_conf.ini) is maintained with key-value pairs
+    - Hardcoded values, used by monitoring and notification scripts, are maintained here
+
+Notification scripts
+    - send_ha_mail.py
+        - template mail-handling script
+    - send_notify_mail.sh (replaces send_mail_1.py)
+        - mailing script invoked on host state (MASTER/BACKUP/FAULT) change
+    - state_change_primary.sh (Replaces toggle_sro_m.sh)
+        - Handles transition events and actions to be performed thereof
+
+Monitoring script logic
+    - Process IDs for Simplus and MySQL processes are identified
+    - Check for mysql read_only state based on host state (MASTER/BACKUP)
+        - Reset to expected values if necessary
+        - Performed by manage_mysql_read.sh
+    - If process ID is not available for either of these processes, script returns 1 (failure)

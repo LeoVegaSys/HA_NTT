@@ -1,0 +1,17 @@
+Below scenarios were observed during the testing phase:
+
+- Both primary and secondary servers are in MASTER state
+    - Observed when the server in MASTER state is `init 6`d for reboot, but does not start up again.
+        - The MASTER state server went down for a long time and on returning back online, following things were observed
+            - Other host in the HA group became MASTER and picked up the virtual IP.
+            - Since keepalived process has started before MySQL (process to be monitored), it misbehaved by staying in MASTER state, 
+                despite there being another MASTER host in the same group.
+            - Since MySQL shut down in MASTER state, the MySQL READ variables (super_read_only and read_only) stayed OFF, allowing 
+                writes to database.
+            - At that point of time, there were 2 MASTERs in the same group, and both databases were open for writes.
+    - Resolution:
+        - On server rebooting successfully, 
+            - Stopping keepalived service on the servers, in the order of expected BACKUPs first and MASTER last
+            - Starting keepalived service on the servers, MASTER first, BACKUPs next
+
+            

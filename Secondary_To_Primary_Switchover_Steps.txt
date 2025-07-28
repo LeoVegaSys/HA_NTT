@@ -1,0 +1,51 @@
+Secondary To Primary Failover
+=============================
+
+Action plan to be followed, to make primary server MASTER in HA setup:
+
+- Confirm primary server is in BACKUP state
+    - Run `ip a | grep <virtual IP>
+        - If no response is received, BACKUP state is confirmed
+    - Run `systemctl status keepalived`
+        - If `Entering BACKUP STATE` is observed in the output, BACKUP state is confirmed
+
+- Confirm processes that are to be monitored as part of HA setup
+    - Usual processes include Simplus & MySQL
+
+- Always try to restart MySQL (if DOWN) first, before starting Simplus (if DOWN)
+
+- If MySQL is one of the monitored processes,
+    - First confirm that MySQL is not already running on the server
+        - Run `ps -aef | grep 'mysql'` and look out for `mysqld_safe` and `/usr/local/mysql/bin/mysqld` in the result
+        - If present, mysql is already running
+
+    - If MySQL is not currently running, perform below Steps
+        - Run `/usr/local/mysql/bin/mysqld_safe &` to start MySQL
+        - Login to mysql and run `show slave status\G`
+            - Search for `Slave_IO_Running` and `Slave_SQL_Running` parameters
+                - If both are YES, slave is running
+                - If both are NO, start the MySQL slave by running `start slave;`
+                    - Recheck `show slave status\G` output to confirm running slave
+
+- If Simplus is one of the monitored processes,
+    - First confirm that simplus is not already running on the server
+        - Run `ps -aef | grep 'simplus'` and look out for `sh simplus_stats_run.sh` and `./bin/simplus_stats.bin` in the result
+        - If present, simplus is already running
+
+        - If Simplus is not currently running, 
+            - To log reason for simplus failure, check last entries of stats_logfile
+                - Run `tail -f /path/to/Simplus WS/stats_logfile.txt`
+            - Login to tmux session, run `tmux attach-session -t <Workspace Name>`, usually workspace name is NTT_STATS
+                - Move to Simplus workspace folder
+                - Run `date` to record Simplus start timestamp
+                - Execute Simplus startup script by running `sh simplus_stats_run.sh`
+                - Exit tmux session by pressing Ctrl + B then D
+            - Confirm Simplus is running by checking result of `ps -aef | grep 'simplus'`
+
+- Once all the monitored processes are up and running, keepalived should ideally move the server back to MASTER state, 
+    after the defined interval has passed
+    - Confirm primary server is in MASTER state
+        - Run `ip a | grep <virtual IP>
+            - If response similar to `inet ....` is received, MASTER state is confirmed
+        - Run `systemctl status keepalived`
+            - If `Entering MASTER STATE` is observed in the output, MASTER state is confirmed
