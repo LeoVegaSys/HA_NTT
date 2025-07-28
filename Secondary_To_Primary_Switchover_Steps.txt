@@ -49,5 +49,3 @@ Action plan to be followed, to make primary server MASTER in HA setup:
             - If response similar to `inet ....` is received, MASTER state is confirmed
         - Run `systemctl status keepalived`
             - If `Entering MASTER STATE` is observed in the output, MASTER state is confirmed
-
-Harsh
