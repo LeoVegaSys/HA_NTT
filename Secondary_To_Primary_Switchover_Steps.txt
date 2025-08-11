@@ -42,6 +42,9 @@ Action plan to be followed, to make primary server MASTER in HA setup:
                 - Exit tmux session by pressing Ctrl + B then D
             - Confirm Simplus is running by checking result of `ps -aef | grep 'simplus'`
 
+- Switchover will happen after 5 minutes delay, once all the monitored processes are up and running.
+    - Configuration of delay is present in keepalived.conf, as product of interval (1 minute) and rise (6) - 1
+
 - Once all the monitored processes are up and running, keepalived should ideally move the server back to MASTER state, 
     after the defined interval has passed
     - Confirm primary server is in MASTER state

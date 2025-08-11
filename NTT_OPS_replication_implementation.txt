@@ -15,16 +15,28 @@ REPLICATION SETUP:
 - Binary logging should be enabled on MASTER and SLAVE/s
 
 	[mysqld]
-	log-bin=mysql-bin
-	server-id=1
+	log-bin=binlog
+	server-id=1			-- select server id from last octet of server IP (e.g. 100 in 192.168.0.100)
 
 - Confirm that innodb_flush_log_at_trx_commit=1 and sync_binlog=1 are set in my.cnf. Required for the greatest possible durability and consistency in a replication setup using InnoDB with transactions.
 - Ensure that the skip_networking and bind_address system variables are disabled/commented on MASTER's my.cnf.
 - For preserving the commit order on MASTER and SLAVE, ensure that slave-preserve-commit-order is enabled (ON). This option can only enforce commit order if the SLAVE has the binary log turned on (log_bin=binlog) and applier threads are logging to its own binary log (log_slave_updates=ON)
-- For allowing changes to specific database/s to be logged, use directive binlog_do_db=<DB-to-be-logged Name> under [mysqld] section. This change is to be made on MASTER.
-- For allowing changes to specific database/s to be replicated onto slave, use directive replicate-do-db=<DB-to-be-logged Name> under [mysqld] section. This change is to be made on SLAVE.
 - To disable replication slave start on mysql restart, skip-slave-start flag can be set to 1 in my.cnf
+- The following configurations are to make replication crash-safe
+	- sync-master-info=1				-- syncs master info after every transaction
+	- sync-relay-log=1					-- syncs slave relay log after every transaction
+	- sync-relay-log-info=1				-- syncs slave relay log info after every transaction
+	- relay_log_info_repository=TABLE	-- writes relay log info to mysql.slave_relay_log_info table
+	- master_info_repository=TABLE		-- writes master info to mysql.slave_master_info table
+	- relay_log_recovery=ON				-- reads from master binlog on restart. Avoids corrupted relay logs. Verify relay_log_purge is ON for proper working
+- Ensure that slave-skip-errors=all is commented if present. Instead, provide explicit error codes that can be ignored as values to slave-skip-errors.
+	- Example : slave_skip_errors=1032
+- Ensure default-character-set is commented in [client] section. This is to enable mysqlbinlog to parse serve binlogs
 
+
+- ***For allowing changes to specific database/s to be logged, use directive binlog_do_db=<DB-to-be-logged Name> under [mysqld] section. This change is to be made on MASTER.
+- ***For allowing changes to specific database/s to be replicated onto slave, use directive replicate-do-db=<DB-to-be-logged Name> under [mysqld] section. This change is to be made on SLAVE.
+- ***relay_log_space_limit=4G			-- limits the relay log file size, when slave IO thread keeps reading master logs, while slave SQL thread lags/stops. 
 ==========================================================================================================================================================================
 MASTER SLAVE REPLICATION:
 

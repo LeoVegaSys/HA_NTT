@@ -1,12 +1,5 @@
 Below are a list of points that count as learnings gathered over the idea initiation and testing  stages
 
-- STOP replication slave on MySQL server before stopping/killing mysqld process 
-  - Run `stop slave` to stop replication slave on MySQL
-
-- Use mysql command to start/stop MySQL server
-  - /usr/local/mysql/bin/mysqladmin shutdown            -- stops server
-  - /usr/local/mysql/bin/mysqld_safe &                  -- starts server
-
 - Check if firewall is running
   - systemctl status firewalld
   - Should be inactive
@@ -19,6 +12,23 @@ Below are a list of points that count as learnings gathered over the idea initia
   - ** DO THIS ONLY AFTER CONSULTING CLIENT : To set to Permissive SELinux policy, run command setenforce 0
 
 - Confirm if MySQL is running on the expected port, either default port 3306 or any other port. Port 3306 preferred for hassle-free implementation.
+
+- Confirm max_allowed_packet value is same for both master and replica, by running `show variables like 'max_allowed_packet';` on MySQL
+
+- STOP replication slave on MySQL server before stopping/killing mysqld process 
+  - Run `stop slave` to stop replication slave on MySQL
+
+- Use mysql command to start/stop MySQL server
+  - /usr/local/mysql/bin/mysqladmin shutdown            -- stops server
+  - /usr/local/mysql/bin/mysqld_safe &                  -- starts server
+
+- Ensure a file named `.my.cnf` is present in the base folder of root user containing MySQL credentials, to allow scripts to access MySQL without providing credentials
+- Contents of .my.cnf
+    [client] 
+    user=<mysql-user> 
+    password=<mysql-user-password> 
+    host=localhost 
+- Provide 600 permissions to .my.cnf for security purposes 
 
 - On secondary server, check stat_kill_script.sh file in Scripts folder
   - Ensure delay is present between restarting simplus stats script AND spStatscommand.txt file rename command 
@@ -53,3 +63,13 @@ Below are a list of points that count as learnings gathered over the idea initia
     - Note : Python scripts can handle spaces , but not .sh script files
   - Also verify that the correct .ini file has been source'd in all the scripts
     - Run `grep .ini *` in /etc/keepalived, to get list of occurences of config file in scripts in the folder
+
+
+
+GOOD-TO-KNOW:
+
+- To run commands on MASTER, that should not be written to binlog, and hence not replicated on slave, use SET SQL_LOG_BIN=0
+  - This informs server not to write the following commands after this in binlog
+  - Remember to run SET SQL_LOG_BIN=1, to reactivate writing to binlog
+
+- Keep an eye out on the size of relay logs on SLAVE, when replication has failed. SLAVE's IO thread keeps reading the MASTER binlogs till the latest update.

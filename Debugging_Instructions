@@ -1,0 +1,44 @@
+There are 2 sections for debugging for HA, replication and keepalived
+
+[Replication]
+- Replication failure can be diagnosed using `SHOW SLAVE STATUS` command through 3 parameters
+    - Slave_IO_Running                  -- Should be YES. If NO, denotes replication is not reading binlogs from MASTER
+    - Slave_SQL_Running                 -- Should be YES. If NO, denotes replication is not running commands from replicated binlogs from MASTER
+    - Seconds_Behind_Master             -- Should be 0 or non-zero number. If NULL, denotes replication has errored out or stopped
+
+- In my.cnf, skip-slave-errors should not be set to `all`, as it will allow replication to go on, ignoring all errors.
+    - You can list the error codes that can be ignored after skip-slave-errors (e.g. skip-slave-errors=1032)
+        - The addition of error codes needs to happen on my.cnf. Hence will require restart of MySQL service
+    - Alternatively, to skip one replication error at a time in mysql, follow the below sequence of steps:
+        - STOP SLAVE;                               -- stops replication slave
+        - SET GLOBAL sql_slave_skip_counter = 1;    -- skips the current error and continues replication
+        - START SLAVE;                              -- starts replication slave again;
+    - To debug an error on replica/slave, will involve debugging the binlogs on the master server
+        - mysqlbinlog is a tool used to read binlogs / relay logs
+        - Sample usage commands for mysqlbinlog
+            - /usr/local/mysql/bin/mysqlbinlog --start-datetime="2025-08-06 18:50:50" --stop-datetime="2025-08-06 18:51:55" binlog.000018
+                - start-datetime & stop-datetime are used to specify datetime between suspected failure can be identified
+            - /usr/local/mysql/bin/mysqlbinlog --start-position=179963587 --stop-position=179978466 binlog.000018 
+                - start-position & stop-position are used to specify start and end log positions to identify erroneous commands
+            - /usr/local/mysql/bin/mysqlbinlog --start-datetime="2025-08-10 12:35:00" --stop-position=976030749  mysql-bin.000027
+                - datetime and position parameters can be used interchangably
+            - /usr/local/mysql/bin/mysqlbinlog --verbose --base64-output=DECODE-ROWS --start-position=179963587 --stop-position=179978466 binlog.000018
+                - options --verbose & --base64-output=DECODE-ROWS help to convert the parsed logs from binary format to human-readable form
+        - Use grep/egrep to search for patterns in the binlog, to make the search faster
+            - /usr/local/mysql/bin/mysqlbinlog --start-datetime="2025-08-10 12:35:00" --stop-position=976030749  mysql-bin.000027 |  egrep '^# at |end_log_pos'
+                - Above command gives the start (denoted by `# at`) and end log positions (denoted by `end_log_pos`) for each command run within the set limits
+
+
+[Keepalived]
+- To identify issues in keepalived process, use the following commands
+    - Use `systemctl status keepalived` command to check if keepalived is running or not
+        - If keepalived is not running, command will give `Active: inactive (dead)`
+        - If keepalived is running, command will return `Active: active (running)`
+    - Run command `ip a | grep <VIRTUAL_IP>` to check which server is currently the MASTER
+        - If command returns `inet ....`, server is currently MASTER in HA setup
+        - If command does not return anything, denotes BACKUP
+    - Use `journalctl -u keepalived -f` to monitor keepalived logs real-time
+        - Replace `-f` with `-n N` to see last N keepalived log entries
+    - In case of warnings or errors in the output of `systemctl status keepalived`, check for description in messages
+        - Use command `cat /var/log/messages | grep keepalived`
+     
