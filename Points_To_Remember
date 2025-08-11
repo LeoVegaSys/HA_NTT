@@ -1,5 +1,12 @@
 Below are a list of points that count as learnings gathered over the idea initiation and testing  stages
 
+- STOP replication slave on MySQL server before stopping/killing mysqld process 
+  - Run `stop slave` to stop replication slave on MySQL
+
+- Use mysql command to start/stop MySQL server
+  - /usr/local/mysql/bin/mysqladmin shutdown            -- stops server
+  - /usr/local/mysql/bin/mysqld_safe &                  -- starts server
+
 - Check if firewall is running
   - systemctl status firewalld
   - Should be inactive
@@ -13,10 +20,19 @@ Below are a list of points that count as learnings gathered over the idea initia
 
 - Confirm if MySQL is running on the expected port, either default port 3306 or any other port. Port 3306 preferred for hassle-free implementation.
 
-- Turning SUPER_READ_ONLY flag ON on mysql, turns READ_ONLY ON by default
-- However, turning SUPER_READ_ONLY flag OFF DOES not turn READ_ONLY OFF.
+- On secondary server, check stat_kill_script.sh file in Scripts folder
+  - Ensure delay is present between restarting simplus stats script AND spStatscommand.txt file rename command 
+  - This is so the simplus process is provided sufficient delay to initialize
 
-- To stop replication slave from starting by default on starting / restarting MySQL process, add skip-slave-start=1 under [mysqld] in my.cnf
+- Turning SUPER_READ_ONLY flag ON on mysql, turns READ_ONLY ON by default. Command : mysql> SET GLOBAL super_read_only = ON;
+  - However, turning SUPER_READ_ONLY flag OFF DOES not turn READ_ONLY OFF.
+    - Use commands:
+      - mysql> SET GLOBAL super_read_only = OFF;
+      - mysql> SET GLOBAL read_only = OFF;
+
+- To stop replication slave from starting by default on starting / restarting MySQL process, 
+  - add skip-slave-start=1 under [mysqld] in my.cnf
+  - DO remember to start replication server using command `start slave`
 
 - While starting the High Availability system,
   - First setup the DB replication process, with initial MASTER SLAVE replication setup, followed by MASTER MASTER REPLICATION setup
@@ -28,6 +44,12 @@ Below are a list of points that count as learnings gathered over the idea initia
   - Usage to comment cron jobs : sh toggle_cron.sh comment 
           to uncomment cron jobs : sh toggle_cron.sh uncomment 
 
-- To send test mail feature, use the send_mail_1.py script in /etc/keepalived
-  - The script expects 5 arguments, primary among which are the 1st (server IP) and 5th (server state [MASTER/BACKUP/FAULT]). Others are not being considered as of now.
-  - Usage to send state change to MASTER mail : python send_mail_1.py <Any IP> X Y MASTER Z
+- To send test mail feature, use the send_notify_mail.sh script in /etc/keepalived
+  - The script expects 4 arguments, primary among which is the 3rd (server state [MASTER/BACKUP/FAULT]). Others are not being considered as of now.
+  - Usage to send state change to MASTER mail : sh send_notify_mail.sh X Y MASTER Z
+
+- Check the local .ini config file present in /etc/keepalived folder
+  - Verify no spaces are present before or after "=" for all key-value pairs
+    - Note : Python scripts can handle spaces , but not .sh script files
+  - Also verify that the correct .ini file has been source'd in all the scripts
+    - Run `grep .ini *` in /etc/keepalived, to get list of occurences of config file in scripts in the folder

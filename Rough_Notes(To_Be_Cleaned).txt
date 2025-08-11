@@ -816,3 +816,9 @@ To set SELinux policy severity level to Enforcing,
 Setenforce 1 
 
 ======================================================================== 
+
+- On the secondary server, the AUTO_DISC script in cronjob kills the running simplus process and restarts it. 
+    - As a result, if the secondary server is MASTER, 
+        it kills the polling simplus process and creates a new simplus process, which stays in INIT (non-polling) mode
+    - Renaming trigger file (spStatscommand.txt), after a pre-decided delay, allows simplus stats to initialize 
+        and then move to polling state 
