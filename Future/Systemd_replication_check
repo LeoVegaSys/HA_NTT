@@ -1,0 +1,41 @@
+- Since crontab will be enabled/disabled based on HA status, cron is not an option to run check scripts. Systemctl provides an alternative approach.
+
+- Create a script to identify when replication breaks. Sample script below
+
+        #!/bin/bash
+        LOGFILE="/var/log/mysql-replication-check.log"
+        exec >> "$LOGFILE" 2>&1
+        TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+        MYSQL_PATH="/usr/local/mysql/bin/mysql"
+        LOCAL_MYSQL_CRED_CON="/etc/keepalived/mysql.cnf"
+        GET_LOCAL_SQL_CONF="--defaults-file=$LOCAL_MYSQL_CRED_CONF"
+        #STATUS=$(mysql "$GET_LOCAL_SQL_CONF" -e "SHOW SLAVE STATUS\G")
+        STATUS=$("$MYSQL_PATH" "$GET_LOCAL_SQL_CONF" -e "SHOW SLAVE STATUS\G")
+        echo $STATUS >> "$LOGFILE"
+        IO=$(echo "$STATUS" | grep "Slave_IO_Running" | awk '{print $2}')
+        SQL=$(echo "$STATUS" | grep "Slave_SQL_Running" | awk '{print $2}')
+        ERROR=$(echo "$STATUS" | grep "Last_SQL_Error" | cut -d: -f2-)
+
+        EMAIL="your@email.com"
+
+        if [[ "$IO" != "Yes" || "$SQL" != "Yes" ]]; then
+            MESSAGE="$TIMESTAMP MySQL replication is broken.\n\nSlave_IO_Running: $IO\nSlave_SQL_Running: $SQL\nError: $ERROR"
+            subject="HA Keepalived Notification : Server replication failed"
+            echo -e "$MESSAGE" >> "$LOGFILE"
+
+            /usr/bin/python /etc/keepalived/send_ha_mail.py --subject "$subject" --body "$MESSAGE" 
+            #echo -e "$MESSAGE" | mail -s "ALERT: MySQL Replication Failure on $(hostname)" "$EMAIL"
+        else
+            echo "$TIMESTAMP ✅ Replication is healthy." >> "$LOGFILE"
+        fi
+
+- Create a .service and .timer file to contain systemd run details
+    - Service will contain information about the script to be executed
+    - Timer will contain info about script run frequency
+- Store these files at path /etc/systemd/system
+- Run below commands to start replication check process
+    - systemctl daemon-reexec
+    - systemctl daemon-reload
+    - systemctl enable --now mysql-replication-check.timer
+
+Update : MySQL credentials were not getting captured by script from .my.cnf in /root folder
