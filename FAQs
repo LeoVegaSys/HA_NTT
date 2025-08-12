@@ -55,6 +55,25 @@ Q.  What is my Virtual IP?
 A.  Virtual IP can be identified from the virtual_ipaddress section in the keepalived.conf located in the /etc/keepalived folder.
     This should match the IP set for VIRTUAL_IP parameter in *_ha_conf.ini located in the /etc/keepalived folder.
 
+Q.  How to check which server is the MASTER at present?
+A.  Run command `ip a | grep <VIRTUAL IP>` on the servers. Whichever server responds with `inet ...` is the MASTER in the current configuration. 
+
+Q.  What checks to perform on HA switchover?
+A.  Verify the MASTER server by using command `ip a | grep <VIRTUAL IP>`
+    On the MASTER,
+        - Run command `crontab -l` and verify crontab is in uncommented state
+        - Run command `show variables like '%read%only%';` in MySQL and verify read_only and super_read_only variables are OFF
+        - Verify if slave is running using command `show slave status\G` in MySQL and verify Slave_IO_Running and Slave_SQL_Running are set to YES
+    On the BACKUP,
+        - Run command `crontab -l` and verify crontab is in commented state
+        - Run command `show variables like '%read%only%';` in MySQL and verify read_only and super_read_only variables are ON
+        - Verify if slave is running using command `show slave status\G` in MySQL and verify Slave_IO_Running and Slave_SQL_Running are set to YES
+
+Q.  Can firewall enabling cause an issue for HA?
+A.  Yes. If firewall is enabled, there is a high chance replication will be affected or blocked.
+    Verify firewall process is disabled using command `systemctl status firewalld`. 
+    Response should contain     Active: inactive (dead)
+
 Q.  From where do the scripts get the MySQL credentials, if input username and password are not provided?
 A.  File .my.cnf, placed in the base folder of the user running the script, contains the username, password and hostname required for MySQL queries.
     E.g., for root user, the file .my.cnf will be present in path /root. Sample given below:
@@ -62,9 +81,6 @@ A.  File .my.cnf, placed in the base folder of the user running the script, cont
         user=<mysql-user> 
         password=<mysql-user-password> 
         host=localhost 
-
-Q.  How to check which server is the MASTER at present?
-A.  Run command `ip a | grep <VIRTUAL IP>` on the servers. Whichever server responds with `inet ...` is the MASTER in the current configuration. 
 
 Q.  Which script can i use to comment crontab entries?
 A.  The toggle_cron.sh script, located in /etc/keepalived folder, helps to comment/uncomment current crontab entries.
@@ -109,3 +125,31 @@ A.  The parameters provided in *_ha_conf.ini file are accessed by various script
     BACKUP_DIR                  -- Base folder location for storing backup compressed binlogs
     KEEP_LAST                   -- Number of latest logs, not to be backed up/purged
     BINLOG_PREFIX               -- Binlog file name prefix pattern
+
+Q.  To add a new script to keepalived process, what preliminary checks should be performed to ensure smooth execution?
+A.  Make sure that execute permissions are given to the script. You can use command `chmod +x <script>`.
+    Environment variables are not available to the scripts. Ensure to use full paths for packages (MySQL, Python, etc.) used in the script.
+    Provide ownership of the correct script execution user, using command `chown <user>:<user> <script>`
+    Test the script by logging to a file, either by redirecting script output to a logfile OR adding logging to logfile in script using instruction `exec >> <logfile> 2>&1`
+
+Q.  How to skip replication errors?
+A.  Replication errors stop the replication slave and can be identified by running `show slave status\G` in MySQL and checking the Last_Error section.
+    There are 2 approaches to skipping replication errors. They are:
+        1. If each error has to be debugged and then skipped, after debugging the error 
+            - you can stop the slave (using command `stop slave` in MySQL)
+            - you can skip the last error (using command `SET GLOBAL sql_slave_skip_counter = 1;` in MySQL)
+            - you can start the slave (using command `start slave` in MySQL)
+            This skips the last error, and continues replication till the next error
+        2. If the error is not impacting data consistency and can be ignored for future occurrences, 
+            - the error code can be identified from the error
+            - add the error code to the list of error codes assigned to skip-slave-errors configuration in my.cnf
+            - restart the MySQL server for changes to take effect 
+
+Q.  What other things regarding the HA setup should I know about?
+A.  There are a few changes that have been introduced to keep HA running smoothly. Below is a list of these changes:
+        - On designated secondary/backup servers, the Simplus script stat_kill_script.sh, executed as part of AUTO_DISC cronjob, kills the running Discovery and Simplus stats threads.
+            This causes Simplus stats to restart and stay in non-polling mode.
+            Checks have been added to the end of stat_kill_script.sh to ensure Simplus stats polls and writes data points.
+            This has been achieved by renaming the Simplus trigger file spStatscommand.txt,to initiate polling again, if the server is in MASTER state and holds the Virtual IP.
+        - When keepalived polls to check if a given service is running, a script manage_mysql_read.sh runs, monitoring MySQL read_only parameters (read_only and super_read_only).
+            This resets them to the expected values (OFF if server is MASTER; ON otherwise), if they are not in expected state.
