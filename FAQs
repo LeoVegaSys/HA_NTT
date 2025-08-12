@@ -1,0 +1,111 @@
+Below are some of the frequently asked questions and their answers:
+
+Q.  How to check read_only parameters set on MySQL?
+A.  Run commands `show variables like '%read%only%';` in MySQL to get the current configuration
+    Sample result:
+            +-----------------------+-------+
+        | Variable_name         | Value |
+        +-----------------------+-------+
+        | innodb_read_only      | OFF   |
+        | read_only             | OFF   |
+        | super_read_only       | OFF   |
+        | transaction_read_only | OFF   |
+        | tx_read_only          | OFF   |
+        +-----------------------+-------+
+    In this, we are interested in read_only and super_read_only.
+    read_only applies to non-root users
+    super_read_only applies to root users
+    Possible values : YES / NO
+    YES denotes READ ONLY mode (no writes allowed) 
+    NO denotes READ WRITE mode (writes allowed)
+
+Q.  How to stop replication slave?
+A.  Replication slave can be stopped by running the command `stop slave` in MySQL
+    Verify the command success by running `show slave status\G`
+    The result should contain the below lines
+        Slave_IO_Running: No
+        Slave_SQL_Running: No
+
+Q.  How to start replication slave?
+A.  Replication slave can be stopped by running the command `start slave` in MySQL
+    Verify the command success by running `show slave status\G`
+    The result should contain the below lines
+        Slave_IO_Running: Yes
+        Slave_SQL_Running: Yes
+
+Q.  How to stop keepalived service?
+A.  Keepalived service can be stopped by running the command `systemctl stop keepalived` on the terminal
+    Verify the command success by running `systemctl status keepalived`
+    The result should contain the below lines
+        Active: inactive (dead)
+
+Q.  How to start keepalived service?
+A.  Keepalived service can be stopped by running the command `systemctl start keepalived` on the terminal
+    Verify the command success by running `systemctl status keepalived`
+    The result should contain the below lines
+        Active: active (running)
+
+Q.  How to set the database to READ ONLY mode?
+A.  To stop writes from normal (non-root) users , run command `SET GLOBAL read_only = ON;` in MySQL.
+    To stop writes from root users , run command `SET GLOBAL super_read_only = ON;` in MySQL.
+    Verify using command `show variables like '%read%only%';` in MySQL to get the current configuration
+
+Q.  Where to check for Virtual IP assigned to current HA setup?
+Q.  What is my Virtual IP?
+A.  Virtual IP can be identified from the virtual_ipaddress section in the keepalived.conf located in the /etc/keepalived folder.
+    This should match the IP set for VIRTUAL_IP parameter in *_ha_conf.ini located in the /etc/keepalived folder.
+
+Q.  From where do the scripts get the MySQL credentials, if input username and password are not provided?
+A.  File .my.cnf, placed in the base folder of the user running the script, contains the username, password and hostname required for MySQL queries.
+    E.g., for root user, the file .my.cnf will be present in path /root. Sample given below:
+        [client] 
+        user=<mysql-user> 
+        password=<mysql-user-password> 
+        host=localhost 
+
+Q.  How to check which server is the MASTER at present?
+A.  Run command `ip a | grep <VIRTUAL IP>` on the servers. Whichever server responds with `inet ...` is the MASTER in the current configuration. 
+
+Q.  Which script can i use to comment crontab entries?
+A.  The toggle_cron.sh script, located in /etc/keepalived folder, helps to comment/uncomment current crontab entries.
+    To comment crontab, run command `sh toggle_cron.sh comment`
+    To uncomment crontab, run command `sh toggle_cron.sh uncomment`
+    Run command `crontab -l` to verify changes are as expected.
+
+Q.  How to check keepalived logs?
+A.  Keepalived live logs can be accessed using command `journalctl -u keepalived -f`
+
+Q.  Where can I find the keepalived logs showing server switchover details?
+A.  The log location is set by the KEEPALIVED_LOG parameter in *_ha_conf.ini located in the /etc/keepalived folder.
+
+Q.  Please provide a description of the paramters provided in *_ha_conf.ini file.
+A.  The parameters provided in *_ha_conf.ini file are accessed by various scripts in the keepalived setup. Their description is as follows:  
+    HOST_IDENTIFIER             -- provides the pseudo name given to server, as a unique identifier
+    IP                          -- server IP
+    VIRTUAL_IP                  -- keepalived Virtual IP assigned to the HA setup
+    SMTP_SERVER                 -- SMTP mail server
+    SMTP_PORT                   -- SMTP mail server port
+    SMTP_USER                   -- SMTP mail user name
+    SMTP_PASS                   -- SMTP mail user password
+    SENDER_EMAIL                -- Email sender ID
+    RECEIVER_EMAIL              -- Email recipients IDs
+    KEEPALIVED_LOG              -- Keepalived transition/switchover logs location
+    KEEPALIVED_BASE_FOLDER      -- Keepalived folder location
+    CRON_BACKUP                 -- Crontab backup file name
+    CRON_TMP                    -- Crontab temporary file name
+    CRON_TOGGLE_SCRIPT          -- Crontab toggle (cooment/uncomment) script name
+    MYSQL_PATH                  -- MySQL package full path  [which mysql]
+    PYTHON_PATH                 -- Python package full path [which python]
+    PATH_ENV                    -- PATH environment variable for script
+    IP_PATH                     -- ip package full path
+    SIMPLUS_WS_PATH             -- Simplus workspace base location
+    SIMPLUS_SCRIPT              -- Name of Simplus executable script
+    SIMPLUS_PROC_IDENTIFIER     -- Simplus process name identifier. Used for process grep
+    SIMPLUS_TRIGGER_POLLING_ON  -- Name of Simplus file to trigger polling
+    SIMPLUS_TRIGGER_POLLING_OFF -- Name of Simplus file to stop polling
+    LOCAL_MYSQL_CRED_CONF       -- Local file containing MySQL credentials
+    MYSQL_CHECK_LOG             -- Location of log, maintaining MySQL READ ONLY parameters monitoring details
+    BINLOG_DIR                  -- Base folder location for MySQL binlogs
+    BACKUP_DIR                  -- Base folder location for storing backup compressed binlogs
+    KEEP_LAST                   -- Number of latest logs, not to be backed up/purged
+    BINLOG_PREFIX               -- Binlog file name prefix pattern
