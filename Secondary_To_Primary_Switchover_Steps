@@ -35,6 +35,7 @@ Action plan to be followed, to make primary server MASTER in HA setup:
         - If Simplus is not currently running, 
             - To log reason for simplus failure, check last entries of stats_logfile
                 - Run `tail -f /path/to/Simplus WS/stats_logfile.txt`
+            - Check if coredump has occurred and rectify identified issues, if any. 
             - Login to tmux session, run `tmux attach-session -t <Workspace Name>`, usually workspace name is NTT_STATS
                 - Move to Simplus workspace folder
                 - Run `date` to record Simplus start timestamp
@@ -48,7 +49,7 @@ Action plan to be followed, to make primary server MASTER in HA setup:
 - Once all the monitored processes are up and running, keepalived should ideally move the server back to MASTER state, 
     after the defined interval has passed
     - Confirm primary server is in MASTER state
-        - Run `ip a | grep <virtual IP>
+        - Run `ip a | grep <virtual IP>`
             - If response similar to `inet ....` is received, MASTER state is confirmed
         - Run `systemctl status keepalived`
             - If `Entering MASTER STATE` is observed in the output, MASTER state is confirmed

@@ -14,19 +14,24 @@ There are 2 sections for debugging for HA, replication and keepalived
         - SET GLOBAL sql_slave_skip_counter = 1;    -- skips the current error and continues replication
         - START SLAVE;                              -- starts replication slave again;
     - To debug an error on replica/slave, will involve debugging the binlogs on the master server
+        - To identify the error, 
+            - On slave server, run `show slave status\G` and check the error details listed under `Last Error`.
+                - This will provide error code, master binlog name and log position where error has occurred.  
         - mysqlbinlog is a tool used to read binlogs / relay logs
-        - Sample usage commands for mysqlbinlog
-            - /usr/local/mysql/bin/mysqlbinlog --start-datetime="2025-08-06 18:50:50" --stop-datetime="2025-08-06 18:51:55" binlog.000018
-                - start-datetime & stop-datetime are used to specify datetime between suspected failure can be identified
-            - /usr/local/mysql/bin/mysqlbinlog --start-position=179963587 --stop-position=179978466 binlog.000018 
-                - start-position & stop-position are used to specify start and end log positions to identify erroneous commands
-            - /usr/local/mysql/bin/mysqlbinlog --start-datetime="2025-08-10 12:35:00" --stop-position=976030749  mysql-bin.000027
-                - datetime and position parameters can be used interchangably
-            - /usr/local/mysql/bin/mysqlbinlog --verbose --base64-output=DECODE-ROWS --start-position=179963587 --stop-position=179978466 binlog.000018
-                - options --verbose & --base64-output=DECODE-ROWS help to convert the parsed logs from binary format to human-readable form
-        - Use grep/egrep to search for patterns in the binlog, to make the search faster
-            - /usr/local/mysql/bin/mysqlbinlog --start-datetime="2025-08-10 12:35:00" --stop-position=976030749  mysql-bin.000027 |  egrep '^# at |end_log_pos'
-                - Above command gives the start (denoted by `# at`) and end log positions (denoted by `end_log_pos`) for each command run within the set limits
+            - Sample usage commands for mysqlbinlog
+                - /usr/local/mysql/bin/mysqlbinlog --start-datetime="2025-08-06 18:50:50" --stop-datetime="2025-08-06 18:51:55" binlog.000018
+                    - start-datetime & stop-datetime are used to specify datetime between suspected failure can be identified
+                - /usr/local/mysql/bin/mysqlbinlog --start-position=179963587 --stop-position=179978466 binlog.000018 
+                    - start-position & stop-position are used to specify start and end log positions to identify erroneous commands
+                - /usr/local/mysql/bin/mysqlbinlog --start-datetime="2025-08-10 12:35:00" --stop-position=976030749  mysql-bin.000027
+                    - datetime and position parameters can be used interchangably
+                - /usr/local/mysql/bin/mysqlbinlog --verbose --base64-output=DECODE-ROWS --start-position=179963587 --stop-position=179978466 binlog.000018
+                    - options --verbose & --base64-output=DECODE-ROWS help to convert the parsed logs from binary format to human-readable form
+            - Use grep/egrep to search for patterns in the binlog, to make the search faster
+                - /usr/local/mysql/bin/mysqlbinlog --start-datetime="2025-08-10 12:35:00" --stop-position=976030749  mysql-bin.000027 |  egrep '^# at |end_log_pos'
+                    - Above command gives the start (denoted by `# at`) and end log positions (denoted by `end_log_pos`) for each command run within the set limits
+        - Binlogs can also be accessed through MySQL, if binlog name and start position is known.
+            - Run command `show binlog events in '<binlog name>' from <log position> limit 10\G` in MySQL. This will output the first 10 entries after log position.
 
 
 [Keepalived]
