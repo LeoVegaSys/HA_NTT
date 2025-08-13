@@ -54,13 +54,18 @@ Below are a list of points that count as learnings gathered over the idea initia
   - Usage to comment cron jobs : sh toggle_cron.sh comment 
           to uncomment cron jobs : sh toggle_cron.sh uncomment 
 
-- To send test mail feature, use the send_notify_mail.sh script in /etc/keepalived
-  - The script expects 4 arguments, primary among which is the 3rd (server state [MASTER/BACKUP/FAULT]). Others are not being considered as of now.
-  - Usage to send state change to MASTER mail : sh send_notify_mail.sh X Y MASTER Z
+- To send test mail feature, there are 2 alternatives:
+  - use the send_ha_mail.py script in /etc/keepalived folder, to send generic mail
+    - The script expects mail subject (required), body (required) and importance (optional)
+    - Usage : python send_ha_mail.py --subject "<SUBJECT>" --body "<BODY>" --important
+  - use the send_notify_mail.sh script in /etc/keepalived, to send state change mail
+    - The script expects 4 arguments, primary among which is the 3rd (server state [MASTER/BACKUP/FAULT]). Others are not being considered as of now.
+    - Usage to send state change to MASTER mail : sh send_notify_mail.sh X Y MASTER Z
 
 - Check the local .ini config file present in /etc/keepalived folder
   - Verify no spaces are present before or after "=" for all key-value pairs
     - Note : Python scripts can handle spaces , but not .sh script files
+  - Verify all the paramaters set in .ini file are correct for the given server.
   - Also verify that the correct .ini file has been source'd in all the scripts
     - Run `grep .ini *` in /etc/keepalived, to get list of occurences of config file in scripts in the folder
 

@@ -45,6 +45,19 @@ A.  Keepalived service can be stopped by running the command `systemctl start ke
     The result should contain the below lines
         Active: active (running)
 
+Q.  How to stop HA for a given group of servers?
+A.  The keepalived process needs to be stopped on servers, in increasing order of priority, BACKUP/s first, MASTER last.
+    Run command `systemctl stop keepalived` on each server, and wait 15 seconds before running the same on the next one.
+    Verify successful stop using command `systemctl status keepalived` output.
+
+Q.  How to start HA for a given group of servers?
+A.  The keepalived process needs to be started on servers, in decreasing order of priority, MASTER first, BACKUPs later.
+    Run command `systemctl start keepalived` on each server, and wait 15 seconds before running the same on the next one.
+    Verify successful stop using command `systemctl status keepalived` output.
+
+Q.  How to refresh changes made to keepalived configuration?
+A.  Use command `systemctl reload keepalived` to refresh/load changes made in keepalived configuration or related scripts
+
 Q.  How to set the database to READ ONLY mode?
 A.  To stop writes from normal (non-root) users , run command `SET GLOBAL read_only = ON;` in MySQL.
     To stop writes from root users , run command `SET GLOBAL super_read_only = ON;` in MySQL.
@@ -57,6 +70,12 @@ A.  Virtual IP can be identified from the virtual_ipaddress section in the keepa
 
 Q.  How to check which server is the MASTER at present?
 A.  Run command `ip a | grep <VIRTUAL IP>` on the servers. Whichever server responds with `inet ...` is the MASTER in the current configuration. 
+
+Q.  If the virtual IP for a given HA setup needs to be changed, which all files need to be updated?
+A.  The following changes need to be made 0n all servers in the HA setup:
+        - Replace the new virtual IP in the virtual_ipaddress section in the keepalived.conf located in the /etc/keepalived folder.
+        - Set the same virtual IP for the VIRTUAL_IP parameter in *_ha_conf.ini located in the /etc/keepalived folder.
+        - Run command `systemctl reload keepalived` to refresh keepalived configuration.
 
 Q.  What checks to perform on HA switchover?
 A.  Verify the MASTER server by using command `ip a | grep <VIRTUAL IP>`
