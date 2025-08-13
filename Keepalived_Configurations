@@ -1,0 +1,86 @@
+Below are the details of Keepalived configuration
+
+Install Keepalived package
+
+Commands for Keepalived:
+    - systemctl status keepalived       -- shows latest keepalived status
+    - systemctl start keepalived        -- starts keepalived service
+    - systemctl stop keepalived         -- stops keepalived service
+    - systemctl reload keepalived       -- loads latest keepalived configuration changes, without restarting keepalived service
+    - systemctl restart keepalived      -- restarts keepalived service
+
+Monitoring/Logging Keepalived:
+    - journalctl -u keepalived -f               -- real-time keepalived logging
+    - cat /var/log/messages | grep keepalived   -- keepalived error logging
+
+Keepalived configuration is maintained in keepalived.conf, present in /etc/keepalived folder. There are various configurable sections.
+
+
+Sample Keepalived.conf structure:
+global_defs {
+    -- stores globally applicable settings
+}
+
+vrrp_script {
+    -- maintains monitoring script details, with switchover/failover configuration
+    -- monitoring script returns 0 for success, 1 for failure
+    -- failover handled using weight parameter, that adjusts priority
+}
+
+vrrp_instance {
+    -- identifies the server's position (primary/secondary) in the HA topology, using state and priority parameters
+    -- provides virtual IP details
+    -- vrrp_script status is monitored here
+    
+    notify/notify_master/notify_backup/notify_fault/notify_stop
+    -- provides details of actionable notification scripts, based on server state change
+}
+
+
+Sample Keepalived.conf:
+global_defs {
+    script_user root                                                -- default user for keepalived execution
+    enable_script_security                                          -- additional global configuration
+}
+
+vrrp_script chk_mysql {                                             -- VRRP script identifier
+    script "/etc/keepalived/check_service.sh"                       -- monitoring script details
+    interval 60                                                     -- monitoring script execution interval in seconds
+    weight -20                                                      -- priority is adjusted by weight on script success (increased) / failure (decreased)
+    fall 3                                                          -- number of consecutive script failures after which server is deemed to be down
+    rise 3                                                          -- number of consecutive script successes after which server is deemed to be up
+}
+
+vrrp_instance VI_3 {                                                -- VRRP instance identifier (should be common for all servers in HA group)
+    state BACKUP                                                    -- initial server state (can be MASTER/BACKUP)
+    interface ens192         # Replace with your network interface  -- interface on which server IP is assigned
+    virtual_router_id 53                                            -- virtual router id (should be common for all servers in HA group)
+    priority 100                                                    -- starting priority value (MASTER to be set with higher prioirty)
+    advert_int 1                                                    -- default interval configuration for MASTER alerts
+    authentication {                                                -- authentication credentials between servers in HA group
+        auth_type PASS
+        auth_pass mysecret
+    }
+    virtual_ipaddress {                                             -- Virtual IP
+        10.10.5.13             # Your VIP
+    }
+    track_script {                                                  -- details of VRRP script to be monitored
+        chk_mysql
+    }
+    notify "/etc/keepalived/send_notify_mail.sh"                    -- action performed on every server state change
+    notify_master "/etc/keepalived/state_change_secondary.sh 0"     -- action performed when server becomes MASTER, with highest priority
+    notify_backup "/etc/keepalived/state_change_secondary.sh 1"     -- action performed when server becomes BACKUP
+    notify_fault "/etc/keepalived/state_change_secondary.sh 1"      -- action performed when server goes into FAULT mode
+}
+
+
+- Virtual IP is assigned to the server, in the HA group, with the highest priority, at that point in time. 
+    - Use command `ip a | grep <Virtual IP>` to identify MASTER (outputs `inet...`) or BACKUP/s (no output)
+- Multiple VRRP script sections can be created, to monitor different services using different failover duration configurations.
+- VRRP scripts to be tracked for server state, to be maintained in track_script section.
+- Server startup actions can be performed in notify_master directive
+- Server cleanup actions can be performed in notify_backup directive
+
+
+
+

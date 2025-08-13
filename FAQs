@@ -3,7 +3,7 @@ Below are some of the frequently asked questions and their answers:
 Q.  How to check read_only parameters set on MySQL?
 A.  Run commands `show variables like '%read%only%';` in MySQL to get the current configuration
     Sample result:
-            +-----------------------+-------+
+        +-----------------------+-------+
         | Variable_name         | Value |
         +-----------------------+-------+
         | innodb_read_only      | OFF   |

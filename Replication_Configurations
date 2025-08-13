@@ -13,7 +13,7 @@ Try to maintain the below configurations in one place at the end of the file
 #binlog_do_db = Vegayan             -- commented as not a good idea for replication
 #replicate-do-db = Vegayan          -- commented as not a good idea for replication                                 
 skip_slave_start=1		            -- DO not start slave on MySQL startup
-slave_skip_errors=1032		        -- Skip only update of missing records error
+slave_skip_errors=1032		        -- Skip only errors that can be ignored safely
 server-id=5			                -- server id to be taken from last octet of server IP (5 from 10.10.5.5)
 log-bin=binlog			            -- sets name of binlog files
 sync-master-info=1		            -- syncs master info after every transaction
