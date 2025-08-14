@@ -43,6 +43,7 @@ Primary files involved:
     - support scripts
         - toggle_cron.sh : Uncomment (state change to MASTER) / Comment (state change to BACKUP) crontab
         - send_ha_mail.py : generic emailing script
+        - send_notify_mail.sh : sends email on server state change
         - manage_mysql_read.sh  : monitors and modifies MySQL read_only parameters as per server state
         - binlog_purge.py : Handles backup and purge of old MySQL binlogs  
     - support configuration files

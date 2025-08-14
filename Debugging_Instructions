@@ -3,11 +3,11 @@ There are 2 sections for debugging for HA, replication and keepalived
 [Replication]
 - Replication failure can be diagnosed using `SHOW SLAVE STATUS` command through 3 parameters
     - Slave_IO_Running                  -- Should be YES. If NO, denotes replication is not reading binlogs from MASTER
-    - Slave_SQL_Running                 -- Should be YES. If NO, denotes replication is not running commands from replicated binlogs from MASTER
+    - Slave_SQL_Running                 -- Should be YES. If NO, denotes replication is not running commands from replicated MASTER binlogs
     - Seconds_Behind_Master             -- Should be 0 or non-zero number. If NULL, denotes replication has errored out or stopped
 
-- In my.cnf, skip-slave-errors should not be set to `all`, as it will allow replication to go on, ignoring all errors.
-    - You can list the error codes that can be ignored after skip-slave-errors (e.g. skip-slave-errors=1032)
+- In my.cnf, skip-slave-errors should NOT be set to `all`, as it will allow replication to go on, ignoring all errors.
+    - You can list the error codes that can be ignored after skip-slave-errors (e.g. skip-slave-errors=1032) in my.cnf
         - The addition of error codes needs to happen on my.cnf. Hence will require restart of MySQL service
     - Alternatively, to skip one replication error at a time in mysql, follow the below sequence of steps:
         - STOP SLAVE;                               -- stops replication slave
