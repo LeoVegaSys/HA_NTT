@@ -76,6 +76,8 @@ A.  The following changes need to be made 0n all servers in the HA setup:
         - Replace the new virtual IP in the virtual_ipaddress section in the keepalived.conf located in the /etc/keepalived folder.
         - Set the same virtual IP for the VIRTUAL_IP parameter in *_ha_conf.ini located in the /etc/keepalived folder.
         - Run command `systemctl reload keepalived` to refresh keepalived configuration.
+        - If the server is a designated sedcondary server, please verify if virtual IP is bring used to restart simplus stats as part of crontab job AUTO_DISC.
+            If so, update the virtual IP to the correct value.
 
 Q.  What checks to perform on HA switchover?
 A.  Verify the MASTER server by using command `ip a | grep <VIRTUAL IP>`

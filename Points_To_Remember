@@ -31,6 +31,7 @@ Below are a list of points that count as learnings gathered over the idea initia
 - Provide 600 permissions to .my.cnf for security purposes 
 
 - On secondary server, check stat_kill_script.sh file in Scripts folder
+  - Verify that correct virtual IP value is provided in script
   - Ensure delay is present between restarting simplus stats script AND spStatscommand.txt file rename command 
   - This is so the simplus process is provided sufficient delay to initialize
 
