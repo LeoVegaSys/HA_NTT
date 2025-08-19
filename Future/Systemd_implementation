@@ -1,0 +1,72 @@
+Purpose
+=======
+
+- There are 3 possible approaches to set up custom monitoring:
+    - Cronjob
+        - Since crontab will be enabled/disabled based on HA status, cron is not an option to run check scripts. 
+    - Background scripts
+        - In the event of server going down or script being terminated, monitoring script will require additional monitoring and documentation
+    - Systemd
+        - Systemctl provides an alternative approach. Similar to keepalived, the monitoring process can be converted into a service, and Linux will handle the monitoring.
+
+
+Systemd setup
+=============
+
+- Create a script to monitor a process. Sample script below for replication monitoring 
+
+        #!/bin/bash
+        LOGFILE="/var/log/mysql-replication-check.log"  # Alternatively, use journalctl to monitor service logs 
+        exec >> "$LOGFILE" 2>&1
+        TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+        MYSQL_PATH="/usr/local/mysql/bin/mysql"
+        LOCAL_MYSQL_CRED_CON="/etc/keepalived/mysql.cnf"
+        GET_LOCAL_SQL_CONF="--defaults-file=$LOCAL_MYSQL_CRED_CONF"
+        #STATUS=$(mysql "$GET_LOCAL_SQL_CONF" -e "SHOW SLAVE STATUS\G")
+        STATUS=$("$MYSQL_PATH" "$GET_LOCAL_SQL_CONF" -e "SHOW SLAVE STATUS\G")
+        echo $STATUS >> "$LOGFILE"
+        IO=$(echo "$STATUS" | grep "Slave_IO_Running" | awk '{print $2}')
+        SQL=$(echo "$STATUS" | grep "Slave_SQL_Running" | awk '{print $2}')
+        ERROR=$(echo "$STATUS" | grep "Last_SQL_Error" | cut -d: -f2-)
+
+        EMAIL="your@email.com"
+
+        if [[ "$IO" != "Yes" || "$SQL" != "Yes" ]]; then
+            MESSAGE="$TIMESTAMP MySQL replication is broken.\n\nSlave_IO_Running: $IO\nSlave_SQL_Running: $SQL\nError: $ERROR"
+            subject="HA Keepalived Notification : Server replication failed"
+            echo -e "$MESSAGE" >> "$LOGFILE"
+
+            /usr/bin/python /etc/keepalived/send_ha_mail.py --subject "$subject" --body "$MESSAGE" 
+            #echo -e "$MESSAGE" | mail -s "ALERT: MySQL Replication Failure on $(hostname)" "$EMAIL"
+        else
+            echo "$TIMESTAMP ✅ Replication is healthy." >> "$LOGFILE"
+        fi
+
+- Make the script executable using `chmod +x`
+- Make sure the commands used in script have full path provided. e.g. /path/to/mysql/executable/mysql instead of mysql
+- Create a .service and .timer file to contain systemd run details
+    - Service file, <service name>.service, will contain information about the script to be executed
+    - Timer file, <service name>.timer, will contain info about script run frequency
+- Store these files at path /etc/systemd/system
+- Run below commands to start service
+    - systemctl daemon-reexec (Optional)
+    - systemctl daemon-reload
+    - systemctl enable --now <service name>.timer
+- Verify service frequency configuration using `systemctl list-timers | grep <service name>`
+- Verify service status, by running `systemctl status <service name>`
+- Monitor service logs using `journalctl -u <service name>`
+
+Update : MySQL credentials were not getting captured by script from .my.cnf in /root folder
+
+System cleanup
+==============
+
+- To stop service execution,
+    - Stop service using command `systemctl stop <service name>.service`
+    - Disable service using command `systemctl disable <service name>.service`
+    - Stop service timer using command `systemctl stop <service name>.timer`
+    - Disable service timer using command `systemctl disable <service name>.timer`
+- To permanently discontinue service, after performing the above steps, 
+    - Remove <service name>.service and <service name>.timer file from /etc/systemd/system folder
+    - Reload systemd using `systemctl daemon-reload`
+- Verify service status/deletion, by running `systemctl status <service name>`
