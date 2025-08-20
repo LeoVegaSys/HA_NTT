@@ -1,0 +1,27 @@
+Systemd service implementation steps for MySQL binlog backup & purge feature (Credit : Harsh Mishra)
+====================================================================================================
+
+- Created MySQL binlog backup (Zip compression) and purge script (Refer binlog_purge_by_date_v2.py)
+    - Provided execution permissions using `chmod +x binlog_purge_by_date_v2.py`
+- New systemd service named binlog_purge
+- Created new systemd service file, named binlog_purge.service (Refer binlog_purge.service)
+    - Provided execution script details
+    - Type set to oneshot, fo script to finish execution and not re-execute
+    - Description provides script task details
+- Created new systemd timer file, named binlog_purge.timer (Refer binlog_purge.timer)
+    - Script set to run every day at 10 AM
+    - Persistent set to True, to run script once per day, even if the system was off during the scheduled time
+- Moved binlog_purge.service and binlog_purge.timer to /etc/systemd/system folder
+- Ran the following commands to enable binlog_purge service
+    - systemctl daemon-reload
+        - Reloads all systemd services, and discovers new ones
+    - systemctl enable binlog_purge.timer
+        - Enables binlog_purge service to run as per timer file settings
+    - systemctl list-timers | grep binlog_purge
+        - Verify if binlog_purge is configured to run at the expected timeslot
+    - systemctl status binlog_purge
+        - Check for latest service status, logs and other details
+- Service runs can be traced by checking journalctl logs for service, using command
+    - journalctl -u binlog_purge -f
+- To run service at non-scheduled time, use command
+    - systemctl start binlog_purge.service

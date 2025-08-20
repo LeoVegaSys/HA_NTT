@@ -145,6 +145,7 @@ A.  The parameters provided in *_ha_conf.ini file are accessed by various script
     BINLOG_DIR                  -- Base folder location for MySQL binlogs
     BACKUP_DIR                  -- Base folder location for storing backup compressed binlogs
     KEEP_LAST                   -- Number of latest logs, not to be backed up/purged
+    KEEP_LAST_N_DAYS            -- Number of days, logs older than which can be purged
     BINLOG_PREFIX               -- Binlog file name prefix pattern
 
 Q.  To add a new script to keepalived process, what preliminary checks should be performed to ensure smooth execution?

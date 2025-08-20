@@ -1,0 +1,6 @@
+[Unit]
+Description=Run binlog backup & purge script daily
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env python /home/vegyan/binlog_purge_by_date_v2.py
