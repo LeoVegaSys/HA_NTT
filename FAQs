@@ -175,3 +175,5 @@ A.  There are a few changes that have been introduced to keep HA running smoothl
             This has been achieved by renaming the Simplus trigger file spStatscommand.txt,to initiate polling again, if the server is in MASTER state and holds the Virtual IP.
         - When keepalived polls to check if a given service is running, a script manage_mysql_read.sh runs, monitoring MySQL read_only parameters (read_only and super_read_only).
             This resets them to the expected values (OFF if server is MASTER; ON otherwise), if they are not in expected state.
+        - A systemd service binlog_purge has been custom-added, to take care of compressed backups and purge of MySQL binlog files. 
+            Configuration for this service are controlled by <server name>_ha_conf.ini.

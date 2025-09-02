@@ -2,7 +2,8 @@ Systemd service implementation steps for MySQL binlog backup & purge feature (Cr
 ====================================================================================================
 
 - Created MySQL binlog backup (Zip compression) and purge script (Refer binlog_purge_by_date_v2.py)
-    - Provided execution permissions using `chmod +x binlog_purge_by_date_v2.py`
+    - Configuration for binlog file, path, purge days and count are maintained in <server name>_ha_conf.ini file in /etc/keepalived.
+    - Provided execution permissions using `chmod +x binlog_purge_by_date_v3.py`
 - New systemd service named binlog_purge
 - Created new systemd service file, named binlog_purge.service (Refer binlog_purge.service)
     - Provided execution script details
