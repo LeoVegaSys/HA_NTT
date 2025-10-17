@@ -5,6 +5,7 @@ Purpose: Backup older binlogs by compressing and safely purging them.
 
 import os
 import sys
+import time
 import zipfile
 import subprocess
 from datetime import datetime, timedelta
@@ -29,6 +30,7 @@ required_keys = [
     "BACKUP_DIR",
     "KEEP_LAST",
     "KEEP_LAST_N_DAYS",
+    "KEEP_BACKUP_LAST_N_DAYS",
     "LOCAL_MYSQL_CRED_CONF",
     "BINLOG_PREFIX",
 ]
@@ -41,6 +43,7 @@ BINLOG_DIR = config["BINLOG_DIR"]
 BACKUP_DIR = config["BACKUP_DIR"]
 KEEP_LAST = int(config["KEEP_LAST"])
 KEEP_LAST_N = int(config["KEEP_LAST_N_DAYS"])
+BKP_KEEP_LAST_N = int(config["KEEP_BACKUP_LAST_N_DAYS"])
 LOCAL_MYSQL_CRED_CONF = os.path.expanduser(config["LOCAL_MYSQL_CRED_CONF"])
 BINLOG_PREFIX = config["BINLOG_PREFIX"]
 
@@ -49,6 +52,19 @@ DRY_RUN = "--dry-run" in sys.argv
 NO_PURGE = "--no-purge" in sys.argv
 
 os.makedirs(BACKUP_DIR, exist_ok=True)
+
+# --- Clear old backup files ---
+def delete_old_backups():
+    print(f"Clearing backups older than {BKP_KEEP_LAST_N} days")
+    cutoff_time = time.time() - (BKP_KEEP_LAST_N * 86400)
+    for file_name in os.listdir(BACKUP_DIR):
+        file_path = os.path.join(BACKUP_DIR, file_name)
+        if not os.path.isfile(file_path):   #Skip if not a file
+            continue
+        file_mtime = os.path.getmtime(file_path)
+        if file_mtime < cutoff_time:
+            print(f"Deleting backup file : {file_path}")
+            os.remove(file_path)
 
 # --- Get current binlog ---
 cmd = ["/usr/local/mysql/bin/mysql", f"--defaults-file={LOCAL_MYSQL_CRED_CONF}", "-N", "-s", "-e", "SHOW MASTER STATUS;"]
@@ -99,6 +115,8 @@ to_purge = [f for f in files if f not in keep_set]
 
 print(f"Keeping: {', '.join(sorted(keep_set))}")
 print(f"Archiving: {', '.join(to_purge) if to_purge else 'None'}")
+first_keep = sorted(keep_set)[0]
+print(f"Purging till {first_keep}")
 
 if DRY_RUN or not to_purge:
     print("Dry run: no files touched.")
@@ -123,5 +141,7 @@ if not NO_PURGE and to_purge:
     ]
     subprocess.run(purge_cmd, check=True)
     print(f"Purged MySQL binary logs up to (but not including) {first_keep}")
+
+delete_old_backups()
 
 print("Done.")
